@@ -201,4 +201,4 @@ class PortablePriceService:
 
     async def validate_symbol(self, symbol: str) -> bool:
         price = await self.get_latest_price(symbol)
-        return price is not None
+        return price is not None and price > 0

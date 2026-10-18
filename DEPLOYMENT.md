@@ -77,3 +77,26 @@ For a portfolio project, a separate staging stack is optional. A practical relea
 - Set `CORS_ALLOW_ORIGINS` to the exact MilesWeb domain.
 - Render free instances may sleep, so first API request can be slow.
 - If using a custom domain for Render, update both `FINREVIEW_API_URL` and CORS.
+
+## Transaction safety update
+
+`AUTH_SECRET_KEY` is mandatory for local and hosted startup. Use a randomly
+generated secret of at least 32 bytes; known example/default values are rejected.
+Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`
+and store it in the backend environment. Rotating it signs out existing sessions.
+
+Apply the transaction guardrails SQL in `supabase/migrations/` before deploying
+the updated API to an existing PostgreSQL database. It adds validated checks
+and one holding per `(user_id, symbol)`; it does not rewrite financial data.
+The update was applied to the connected finreview-api project. New local SQLite
+databases receive matching basic checks from SQLModel; existing SQLite databases
+should be backed up and migrated separately.
+
+Imports are atomic for the trade ledger and holdings. Optional derived analytics
+and alerts refresh after commit; `analytics_updated: false` means retry the
+analytics refresh, not the trade. The existing same-day CSV hash deduplication
+is preserved; two otherwise identical trades on the same day still collapse.
+A future explicit broker transaction ID/import idempotency design should replace it.
+
+MF overlap now returns `overlap_score: null` until verified underlying holdings
+are connected. The frontend displays Unavailable rather than a generated score.

@@ -697,7 +697,9 @@ function showDiagnosticDetails(type) {
 
     if (type === 'OVERLAP') {
         title.innerText = "Mutual Fund Stock Overlap Details";
-        if (!GLOBAL_OVERLAP_DATA) {
+        if (GLOBAL_OVERLAP_DATA && GLOBAL_OVERLAP_DATA.overlap_score == null) {
+            body.textContent = GLOBAL_OVERLAP_DATA.diagnostic_summary || "Verified fund holdings data is unavailable.";
+        } else if (!GLOBAL_OVERLAP_DATA) {
             body.innerHTML = "<p class='text-muted text-center py-4'>No overlap data available. Try refreshing intelligence.</p>";
         } else {
             const topShared = GLOBAL_OVERLAP_DATA.top_shared_stocks || [];
@@ -876,11 +878,11 @@ function updateUI(data) {
         .then(res => res.json())
         .then(overlapData => {
             GLOBAL_OVERLAP_DATA = overlapData; // Capture for modal
-            const score = overlapData.overlap_score || 0;
+            const score = overlapData.overlap_score;
             const overlapHtml = `
                 <div class="d-flex justify-content-between mb-2 cursor-pointer" onclick="showDiagnosticDetails('OVERLAP')">
-                    <span>Estimated MF Overlap: <i class="bi bi-info-circle ms-1 small"></i></span>
-                    <span class="fw-bold ${score > 40 ? 'text-danger' : (score > 20 ? 'text-warning' : 'text-success')}">${score}%</span>
+                    <span>MF Overlap: <i class="bi bi-info-circle ms-1 small"></i></span>
+                    <span class="fw-bold ${score == null ? 'text-muted' : (score > 40 ? 'text-danger' : (score > 20 ? 'text-warning' : 'text-success'))}">${score == null ? 'Unavailable' : score + '%'}</span>
                 </div>`;
             
             let taxHtml = `

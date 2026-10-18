@@ -1,13 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
-from typing import List, Optional
-from datetime import datetime, timedelta
+from sqlalchemy.exc import IntegrityError
+from typing import List, Optional, Literal
+from datetime import datetime, timedelta, timezone
 from database import get_session, init_db
 from models.portable_models import User, Holding, Transaction, Insight, NewsArticle, InsightType, AlertRule, AlertEvent, AnalyticsSummary, PriceCache
 from mangum import Mangum # For AWS Lambda support
 from contextlib import asynccontextmanager
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 import uvicorn
 import json
 import csv
@@ -35,13 +36,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup: Initialize Database with retry
     logger.info("Application starting up...")
-    # Warn loudly if the default insecure secret is still in use
-    _INSECURE_DEFAULT = "finreview-local-dev-secret"
-    if os.getenv("AUTH_SECRET_KEY", os.getenv("SECRET_KEY", _INSECURE_DEFAULT)) == _INSECURE_DEFAULT:
-        logger.warning(
-            "AUTH_SECRET_KEY is not set — using the insecure built-in default. "
-            "Set a strong random AUTH_SECRET_KEY environment variable before hosting."
-        )
+    # Refuse known/default secrets before opening the hosted API.
+    _auth_secret()
     for i in range(3):
         try:
             logger.info(f"Connecting to DB (Attempt {i+1}/3)...")
@@ -122,13 +118,33 @@ class AuthRequest(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
 
+class UserPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    dob_year: Optional[int] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    target_allocation: Optional[str] = None
+    drift_sensitivity: float = 5.0
+
+class ProfileUpdateResponse(BaseModel):
+    message: str
+    user: UserPublic
+
 class TransactionRequest(BaseModel):
     user_id: int
-    symbol: str
-    name: Optional[str] = None # Added field
-    type: str # 'BUY', 'SELL'
-    quantity: float
-    price: float
+    symbol: str = Field(min_length=1, max_length=64, pattern=r"^[A-Z0-9^][A-Z0-9._^&=-]*$")
+    name: Optional[str] = Field(default=None, max_length=256)
+    type: Literal['BUY', 'SELL']
+    quantity: float = Field(gt=0, allow_inf_nan=False)
+    price: float = Field(gt=0, allow_inf_nan=False)
+
+    @field_validator('symbol', mode='before')
+    @classmethod
+    def normalize_symbol(cls, value):
+        return value.strip().upper() if isinstance(value, str) else value
     date: Optional[datetime] = None
 
 class AlertRuleRequest(BaseModel):
@@ -140,11 +156,16 @@ class AlertRuleRequest(BaseModel):
 
 # --- AUTH ROUTES ---
 def _auth_secret() -> bytes:
-    return os.getenv("AUTH_SECRET_KEY", os.getenv("SECRET_KEY", "finreview-local-dev-secret")).encode("utf-8")
+    secret = os.getenv("AUTH_SECRET_KEY") or os.getenv("SECRET_KEY", "")
+    if len(secret.encode("utf-8")) < 32 or secret in {
+        "finreview-local-dev-secret", "change-me-for-hosted-deployments"
+    }:
+        raise RuntimeError("Set AUTH_SECRET_KEY to a random secret of at least 32 bytes")
+    return secret.encode("utf-8")
 
 
 def _issue_token(user_id: int) -> str:
-    timestamp = str(int(datetime.utcnow().timestamp()))
+    timestamp = str(int(datetime.now(timezone.utc).timestamp()))
     payload = f"{user_id}:{timestamp}"
     signature = hmac.new(_auth_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"frv1:{payload}:{signature}"
@@ -167,11 +188,12 @@ def _verify_token(authorization: Optional[str], session: Session) -> User:
 
     try:
         user_id = int(user_id_raw)
-        issued_at = datetime.utcfromtimestamp(int(timestamp))
-    except ValueError:
+        issued_at = datetime.fromtimestamp(int(timestamp), timezone.utc)
+    except (ValueError, OverflowError, OSError):
         raise HTTPException(status_code=401, detail="Invalid bearer token")
 
-    if datetime.utcnow() - issued_at > timedelta(days=7):
+    now = datetime.now(timezone.utc)
+    if issued_at > now + timedelta(seconds=60) or now - issued_at > timedelta(days=7):
         raise HTTPException(status_code=401, detail="Session expired")
 
     user = session.get(User, user_id)
@@ -290,7 +312,7 @@ async def get_profile(user_id: int, authorization: Optional[str] = Header(None),
         "last_intelligence_refresh": user.last_intelligence_refresh.isoformat() if user.last_intelligence_refresh else None
     }
 
-@app.post("/auth/profile")
+@app.post("/auth/profile", response_model=ProfileUpdateResponse)
 async def update_profile(request: AuthRequest, authorization: Optional[str] = Header(None), session: Session = Depends(get_session)):
     user = _verify_token(authorization, session)
     
@@ -350,91 +372,63 @@ async def get_holdings(user_id: str, authorization: Optional[str] = Header(None)
     holdings = session.exec(select(Holding).where(Holding.user_id == uid)).all()
     return holdings
 
+async def _refresh_after_transactions(uid: int, session: Session) -> bool:
+    """Derived data can be retried without resubmitting a committed trade."""
+    try:
+        summary = await PortablePortfolioService(session).get_portfolio_summary(uid)
+        PortableAnalyticsService(session).calculate_and_save_summary(
+            uid, summary.get('total_valuation', 0), summary.get('holdings', []))
+        PortableAlertsService(session).evaluate_all_rules(uid)
+        return True
+    except Exception:
+        session.rollback()
+        logger.exception("Transactions saved, derived refresh failed for user %s", uid)
+        return False
+
+
+def _record_transactions(uid: int, rows: list, session: Session):
+    try:
+        return PortablePortfolioService(session).add_transactions(
+            uid, [tx.model_dump(exclude={'user_id'}) for tx in rows])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Transaction conflict; reload and retry") from exc
+
+
 @app.post("/portfolio/transaction")
 async def add_transaction(request: TransactionRequest, authorization: Optional[str] = Header(None), session: Session = Depends(get_session)):
-    uid = int(request.user_id)
-    _require_user_id(uid, authorization, session)
-    service = PortablePortfolioService(session)
-    price_service = PortablePriceService(session)
-    ref_service = ReferenceDataService()
+    user = _require_user_id(request.user_id, authorization, session)
+    uid = user.id
+    holding = _record_transactions(uid, [request], session)[0]
+    refreshed = await _refresh_after_transactions(uid, session)
+    return {"message": "Transaction recorded", "holding": holding,
+            "analytics_updated": refreshed}
 
-    # Auto-resolve and cache name if missing
-    if request.symbol:
-        cached = price_service.get_latest_price_data(request.symbol)
-        if not cached or not cached.name:
-            name = ref_service.get_asset_name(request.symbol)
-            if name:
-                price_service.save_price(request.symbol, 0, name=name)
-
-    holding = service.add_transaction(
-        uid, 
-        request.symbol, 
-        request.type, 
-        request.quantity, 
-        request.price, 
-        request.date,
-        request.name
-    )
-    
-    # Trigger immediate analytics refresh
-    analytics_service = PortableAnalyticsService(session)
-    summary = await service.get_portfolio_summary(uid)
-    analytics_service.calculate_and_save_summary(
-        uid, 
-        summary.get('total_valuation', 0), 
-        summary.get('holdings', [])
-    )
-
-    # Trigger Alert Evaluation
-    alerts_service = PortableAlertsService(session)
-    alerts_service.evaluate_all_rules(uid)
-    
-    return {"message": "Transaction recorded and analytics updated", "holding": holding}
 
 @app.post("/portfolio/bulk-transaction")
 async def add_bulk_transactions(request: List[TransactionRequest], authorization: Optional[str] = Header(None), session: Session = Depends(get_session)):
+    user = _verify_token(authorization, session)
+    uid = user.id
+    if any(tx.user_id != uid for tx in request):
+        raise HTTPException(status_code=403, detail="All transactions must belong to the authenticated user")
     if not request:
         return {"message": "No transactions provided", "count": 0}
-        
-    uid = int(request[0].user_id)
-    _require_user_id(uid, authorization, session)
-    service = PortablePortfolioService(session)
+    if len(request) > 1000:
+        raise HTTPException(status_code=400, detail="Import at most 1000 transactions per batch")
+    # Provider validation happens before any trade is written. Name lookups do
+    # not overwrite global market prices or acquire account locks over HTTP.
     price_service = PortablePriceService(session)
     ref_service = ReferenceDataService()
-    
-    # 1. First Pass: Validate symbols and resolve names
     for tx in request:
-        is_valid = await price_service.validate_symbol(tx.symbol)
-        if not is_valid:
-            logger.warning(f"VALIDATION FAILED for symbol: {tx.symbol}")
-            raise HTTPException(status_code=400, detail=f"Invalid symbol: {tx.symbol}. Please check the symbol and try again.")
-        
-        # Auto-resolve name if not provided or just a symbol
+        if not await price_service.validate_symbol(tx.symbol):
+            raise HTTPException(status_code=400, detail=f"Invalid symbol: {tx.symbol}")
         if not tx.name or tx.name == tx.symbol:
             tx.name = ref_service.get_asset_name(tx.symbol)
-            if tx.name:
-                price_service.save_price(tx.symbol, 0, name=tx.name) # Update cache with name
-
-    # 2. Second Pass: Record transactions
-    for tx in request:
-        service.add_transaction(
-            tx.user_id, tx.symbol, tx.type, tx.quantity, tx.price, tx.date, tx.name
-        )
-    
-    # 3. Trigger immediate analytics refresh
-    analytics_service = PortableAnalyticsService(session)
-    summary = await service.get_portfolio_summary(uid)
-    analytics_service.calculate_and_save_summary(
-        uid, 
-        summary.get('total_valuation', 0), 
-        summary.get('holdings', [])
-    )
-
-    # 4. Trigger Alert Evaluation (NEW)
-    alerts_service = PortableAlertsService(session)
-    alerts_service.evaluate_all_rules(uid)
-
-    return {"message": f"Recorded {len(request)} transactions and updated analytics", "count": len(request)}
+    _record_transactions(uid, request, session)
+    refreshed = await _refresh_after_transactions(uid, session)
+    return {"message": f"Recorded {len(request)} transactions", "count": len(request),
+            "analytics_updated": refreshed}
 
 # --- DEMO ANALYTICS ---
 @app.post("/portfolio/upload-cas")

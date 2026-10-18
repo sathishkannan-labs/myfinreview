@@ -92,7 +92,7 @@ This separation improves reliability, transparency, and testability while demons
 - Concentration analysis
 - Allocation drift diagnostics
 - Tax-loss opportunity diagnostics
-- Estimated mutual fund overlap analysis
+- Mutual fund overlap availability status (verified holdings provider pending)
 
 ---
 
@@ -237,6 +237,9 @@ python -m venv .venv
 pip install -r requirements.txt
 
 copy ..\.env.example .env
+
+# Set AUTH_SECRET_KEY in .env before starting (at least 32 random bytes).
+# Generate a value: python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 uvicorn main:app --reload
 ```

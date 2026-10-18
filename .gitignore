@@ -35,3 +35,5 @@ build/
 
 # Runtime config (ignored; use config.runtime.example.php as template)
 frontend/config.runtime.php
+# Supabase CLI local metadata
+supabase/.temp/

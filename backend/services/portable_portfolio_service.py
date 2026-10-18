@@ -12,57 +12,85 @@ class PortablePortfolioService:
         self.price_service = PortablePriceService(session)
 
     def add_transaction(self, user_id: int, symbol: str, tx_type: str, quantity: float, price: float, date: datetime = None, name: str = None) -> Holding:
-        # 1. Generate Composite Hash for Upsert (Date + Symbol + Quantity + Price)
-        tx_date = date or datetime.now()
-        date_str = tx_date.strftime('%Y-%m-%d')
-        tx_hash = hashlib.md5(f"{user_id}:{date_str}:{symbol}:{tx_type}:{quantity}:{price}".encode()).hexdigest()
+        return self.add_transactions(user_id, [dict(symbol=symbol, type=tx_type,
+            quantity=quantity, price=price, date=date, name=name)])[0]
 
-        # 2. Record Transaction
-        transaction = Transaction(
-            user_id=user_id,
-            symbol=symbol,
-            type=tx_type,
-            quantity=float(quantity),
-            price=float(price),
-            date=tx_date,
-            hash=tx_hash
-        )
-        existing = self.tx_repo.record_transaction(transaction)
-        if existing and existing.id != transaction.id:
-            # Transaction already exists, skip updating holding if this was a duplicate
-            return self.holding_repo.get_holding(user_id, symbol)
+    def add_transactions(self, user_id: int, transactions: list[dict]) -> list[Holding]:
+        """Persist a complete batch and its holdings together, or persist nothing.
 
-        # 3. Update Global Metadata (Name) if provided, but DO NOT overwrite market price
-        if name:
-            self.price_service.update_asset_name(symbol, name)
-
-        # 3. Update Holding (Average price calculation)
-        holding = self.holding_repo.get_holding(user_id, symbol)
-        if not holding:
-            holding = Holding(
-                user_id=user_id,
-                symbol=symbol,
-                quantity=0.0,
-                avg_price=0.0,
-                asset_type='MF' if str(symbol).isdigit() else 'STOCK'
-            )
-        
-        total_qty = holding.quantity
-        avg_price = holding.avg_price
-
-        if tx_type == 'BUY':
-            new_total_qty = total_qty + quantity
-            new_avg_price = ((total_qty * avg_price) + (quantity * price)) / new_total_qty
-        elif tx_type == 'SELL':
-            new_total_qty = total_qty - quantity
-            new_avg_price = avg_price
-        
-        holding.quantity = new_total_qty
-        holding.avg_price = new_avg_price
-        holding.last_updated = datetime.now()
-        
-        self.holding_repo.save_holding(holding)
-        return holding
+        Lock the owning user first on PostgreSQL, including for new holdings, so
+        concurrent requests for the same account cannot lose quantity updates.
+        Repository methods that commit independently must not be used here.
+        """
+        from math import isfinite
+        from models.portable_models import User, TransactionType
+        session = self.holding_repo.session
+        results = []
+        try:
+            if session.get_bind().dialect.name == 'sqlite':
+                connection = session.connection()
+                if not connection.connection.driver_connection.in_transaction:
+                    connection.exec_driver_sql("BEGIN IMMEDIATE")
+            owner = session.exec(select(User).where(User.id == user_id)
+                                 .with_for_update().execution_options(populate_existing=True)).first()
+            if owner is None:
+                raise ValueError("User not found")
+            for tx in transactions:
+                symbol = str(tx['symbol']).strip().upper()
+                tx_type = tx['type']
+                quantity, price = float(tx['quantity']), float(tx['price'])
+                if not symbol or len(symbol) > 64:
+                    raise ValueError("Invalid symbol")
+                if tx_type not in ('BUY', 'SELL'):
+                    raise ValueError("Transaction type must be BUY or SELL")
+                if not isfinite(quantity) or quantity <= 0 or not isfinite(price) or price <= 0 or not isfinite(quantity * price):
+                    raise ValueError("Quantity and price must be positive finite numbers")
+                tx_date = tx.get('date') or datetime.now()
+                # Preserve existing CSV retry semantics for this release.
+                tx_hash = hashlib.md5(f"{user_id}:{tx_date:%Y-%m-%d}:{symbol}:{tx_type}:{quantity}:{price}".encode()).hexdigest()
+                existing = session.exec(select(Transaction).where(Transaction.hash == tx_hash)).first()
+                holding = session.exec(select(Holding).where(
+                    Holding.user_id == user_id, Holding.symbol == symbol)
+                    .execution_options(populate_existing=True)).first()
+                if existing:
+                    if holding is None:
+                        raise ValueError("Existing transaction has no holding; reconciliation required")
+                    results.append(holding)
+                    continue
+                if holding is None:
+                    holding = Holding(user_id=user_id, symbol=symbol, quantity=0,
+                        avg_price=0, asset_type='MF' if symbol.isdigit() else 'STOCK')
+                if tx_type == 'SELL' and quantity > holding.quantity:
+                    raise ValueError(f"Insufficient holdings for {symbol}")
+                if tx_type == 'BUY':
+                    new_quantity = holding.quantity + quantity
+                    new_average = (holding.quantity * holding.avg_price + quantity * price) / new_quantity
+                else:
+                    new_quantity = holding.quantity - quantity
+                    new_average = holding.avg_price if new_quantity else 0.0
+                if not isfinite(new_quantity) or not isfinite(new_average):
+                    raise ValueError("Transaction exceeds supported numeric range")
+                holding.quantity, holding.avg_price = new_quantity, new_average
+                holding.last_updated = datetime.now()
+                session.add(holding)
+                session.add(Transaction(user_id=user_id, symbol=symbol, type=TransactionType(tx_type),
+                    quantity=quantity, price=price, date=tx_date, hash=tx_hash))
+                name = tx.get('name')
+                if name and name.strip().upper() != symbol:
+                    cached = session.get(PriceCache, symbol)
+                    if cached:
+                        cached.name = name
+                    else:
+                        from datetime import timedelta
+                        session.add(PriceCache(symbol=symbol, price=0, name=name,
+                            timestamp=datetime.now() - timedelta(days=1)))
+                session.flush()
+                results.append(holding)
+            session.commit()
+            return results
+        except Exception:
+            session.rollback()
+            raise
 
     async def get_portfolio_summary(self, user_id: int):
         holdings = self.holding_repo.get_user_holdings(user_id)
