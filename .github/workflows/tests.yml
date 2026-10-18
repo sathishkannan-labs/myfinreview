@@ -5,11 +5,14 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.14']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
       - run: pip install -r backend/requirements.txt -r requirements-dev.txt
-      - run: python -m pytest tests/test_portfolio.py tests/test_transaction_safety.py -q
+      - run: python -m pytest tests/test_portfolio.py tests/test_transaction_safety.py tests/test_database_startup.py -q
       - run: node --check frontend/app.js

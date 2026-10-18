@@ -100,3 +100,16 @@ A future explicit broker transaction ID/import idempotency design should replace
 
 MF overlap now returns `overlap_score: null` until verified underlying holdings
 are connected. The frontend displays Unavailable rather than a generated score.
+
+
+## PostgreSQL driver selection
+
+The application explicitly maps `postgresql://` and legacy `postgres://`
+URLs to `postgresql+psycopg2://`, matching the installed `psycopg2-binary`
+dependency. This avoids SQLAlchemy 2.1's default switch to psycopg 3. Existing
+credentials and query options are preserved, so changing `DATABASE_URL` is
+not required. Explicit driver URLs are respected.
+
+CI checks database engine and application imports for PostgreSQL as well as
+SQLite on Python 3.11 and 3.14. These startup checks do not open a connection
+or modify data.
