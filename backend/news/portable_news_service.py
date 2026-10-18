@@ -104,7 +104,7 @@ class PortableNewsService:
         # Build search map once
         search_map = {str(s).split('.')[0].upper(): s for s in symbols}
         
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             tasks = [self._fetch_single_rss_async(url, search_map, client) for url in self.rss_feeds]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             

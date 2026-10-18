@@ -113,3 +113,15 @@ not required. Explicit driver URLs are respected.
 CI checks database engine and application imports for PostgreSQL as well as
 SQLite on Python 3.11 and 3.14. These startup checks do not open a connection
 or modify data.
+
+
+## News ingestion without a scheduler
+
+The authenticated `GET /news/{user_id}` bootstraps an empty portfolio/watchlist
+feed by ingesting RSS and optional NewsData results. `POST /news/{user_id}/ingest`
+remains available for explicit refresh. News has its own 60-second per-process
+cooldown, independent of analytics/AI timestamps. Empty provider results are
+retried after that window; cached articles are returned without another fetch.
+For regular refresh of populated feeds, run `python utils/news_refresher.py`
+from the backend directory using an external scheduler. No scheduler service is
+created by this change. RSS redirects are followed.

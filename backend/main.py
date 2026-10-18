@@ -29,6 +29,7 @@ import logging
 import asyncio
 import hashlib
 import hmac
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -526,8 +527,34 @@ def evaluate_alerts(user_id: str, authorization: Optional[str] = Header(None), s
     return {"message": f"Evaluated rules. {len(events)} new events triggered.", "events": events}
 
 # --- NEWS ROUTES ---
+# Best-effort per-process throttling for on-demand ingestion (no scheduler required).
+_news_refresh_attempts = {}
+NEWS_REFRESH_COOLDOWN_SECONDS = 60
+
+
+async def _refresh_user_news(uid: int, session: Session, explicit: bool = False):
+    now = time.monotonic()
+    last = _news_refresh_attempts.get(uid)
+    if last is not None and now - last < NEWS_REFRESH_COOLDOWN_SECONDS:
+        if explicit:
+            remaining = max(1, int(NEWS_REFRESH_COOLDOWN_SECONDS - (now - last)))
+            raise HTTPException(status_code=429, detail=f"News refresh available in {remaining} seconds.")
+        return 0
+    # Set before awaiting network I/O to avoid concurrent requests starting the
+    # same refresh. Remove expired entries so this map stays bounded over time.
+    for key, attempted in list(_news_refresh_attempts.items()):
+        if now - attempted >= NEWS_REFRESH_COOLDOWN_SECONDS:
+            _news_refresh_attempts.pop(key, None)
+    _news_refresh_attempts[uid] = now
+    try:
+        return await PortableNewsService(session).ingest_news_for_user(uid)
+    except Exception as exc:
+        session.rollback()
+        logger.exception("News ingestion failed for user %s", uid)
+        raise HTTPException(status_code=503, detail="Market news is temporarily unavailable. Please retry shortly.") from exc
+
 @app.get("/news/{user_id}", response_model=List[NewsArticle])
-def get_news(user_id: str, authorization: Optional[str] = Header(None), session: Session = Depends(get_session)):
+async def get_news(user_id: str, authorization: Optional[str] = Header(None), session: Session = Depends(get_session)):
     try:
         uid = int(user_id)
     except:
@@ -549,7 +576,11 @@ def get_news(user_id: str, authorization: Optional[str] = Header(None), session:
     
     statement = select(NewsArticle).where(NewsArticle.symbol.in_(symbols)).order_by(NewsArticle.published_at.desc()).limit(20)
     results = session.exec(statement).all()
-    logger = logging.getLogger('main')
+    if not results:
+        # The Community deployment does not start the standalone news scheduler.
+        # Bootstrap an empty feed through the existing authenticated read route.
+        await _refresh_user_news(uid, session)
+        results = session.exec(statement).all()
     logger.debug(f"Returning {len(results)} news articles for user {uid} and symbols {symbols}")
     return results
 
@@ -560,26 +591,9 @@ async def ingest_news(user_id: str, authorization: Optional[str] = Header(None),
     except: return {"error": "Invalid user_id"}
     _require_user_id(uid, authorization, session)
     
-    # Check Cooldown - Reduced to 1 minute for development/testing
-    user = session.get(User, uid)
-    if user and user.last_intelligence_refresh:
-        diff = datetime.now() - user.last_intelligence_refresh
-        if diff < timedelta(minutes=1):
-            rem = 60 - int(diff.total_seconds())
-            raise HTTPException(status_code=429, detail=f"Refresh available in {rem} seconds.")
-
-    logger.debug(f"Starting news ingestion for user {uid}")
-    service = PortableNewsService(session)
-    count = await service.ingest_news_for_user(uid)
-    logger.debug(f"Ingested {count} stories")
-    
-    # Update timestamp
-    if user:
-        user.last_intelligence_refresh = datetime.now()
-        session.add(user)
-        session.commit()
-
-    return {"message": f"News ingestion complete. {count} new stories stored.", "last_refresh": user.last_intelligence_refresh}
+    count = await _refresh_user_news(uid, session, explicit=True)
+    return {"message": f"News ingestion complete. {count} new stories stored.",
+            "last_refresh": datetime.now(timezone.utc).isoformat()}
 
 # --- ANALYTICS ROUTES ---
 @app.get("/analytics/{user_id}", response_model=Optional[AnalyticsSummary])
