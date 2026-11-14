@@ -53,11 +53,12 @@ async def test_callback_never_reflects_secrets_and_stores_only_for_owner(db,monk
     response=await broker_authorization_callback("fyers",
         request=SimpleNamespace(query_params={"auth_code":"sensitive-code","state":state}),
         session=db)
-    html=response.body.decode()
-    assert response.status_code==200
-    assert "authorization completed" in html.lower()
-    assert "sensitive-code" not in html and state not in html
-    assert "secret-broker-token" not in html
+    assert response.status_code==303
+    location=response.headers["location"]
+    assert location=="https://finreview-v201-staging-ui.onrender.com/intelligence.html#fyersConnectionPanel"
+    assert "sensitive-code" not in location and state not in location
+    assert "secret-broker-token" not in location
+    assert "sensitive-code" not in response.body.decode()
     assert response.headers["cache-control"]=="no-store"
     assert response.headers["referrer-policy"]=="no-referrer"
     assert len(status(db,1)["connections"])==2
