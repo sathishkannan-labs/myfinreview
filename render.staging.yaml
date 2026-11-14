@@ -1,0 +1,60 @@
+# FinReview 2.0.1 — staging-only Blueprint.
+# Import ONLY from a separate Render account/workspace. This config never
+# manages the existing production service or its database.
+#
+# Render static sites are public; authenticated staging data is protected by
+# the backend, but do NOT use real account secrets until access controls and
+# broker callback log redaction are independently verified.
+services:
+  - type: web
+    name: finreview-v201-staging-api
+    runtime: docker
+    repo: https://github.com/sathishkannan-labs/myfinreview
+    branch: release/2.0.1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: singapore
+    autoDeployTrigger: off
+    envVars:
+      - key: FINREVIEW_ENV
+        value: staging
+      - key: FINREVIEW_V2_OAUTH_ENABLED
+        value: "false"
+      - key: FINREVIEW_V2_BROKER_PROBES_ENABLED
+        value: "false"
+      - key: FINREVIEW_V2_MARKET_API_ENABLED
+        value: "false"
+      - key: FINREVIEW_V2_TELEGRAM_ENABLED
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET_KEY
+        generateValue: true
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
+      - key: FINREVIEW_BROKER_VAULT_KEY
+        sync: false
+      - key: FINREVIEW_BROKER_IDENTITY_HMAC_KEY
+        sync: false
+
+  - type: web
+    name: finreview-v201-staging-ui
+    runtime: static
+    repo: https://github.com/sathishkannan-labs/myfinreview
+    branch: release/2.0.1
+    buildCommand: python3 scripts/build_render_staging_frontend.py
+    staticPublishPath: ./staging-dist
+    autoDeployTrigger: off
+    envVars:
+      - key: STAGING_API_URL
+        sync: false
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
