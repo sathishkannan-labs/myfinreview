@@ -61,6 +61,18 @@
 </section>
 <details id="labOptional" class="card lab-card p-4 mb-3"><summary>Experimental tools &amp; broker settings <span class="lab-secondary fw-normal">· Not required for CSV research</span></summary>
 <div class="lab-note mb-3">The following interfaces are development foundations, not end-to-end broker trading features. Live broker authentication, licensed quotes, automated signals and order simulation are not active in this public staging deployment.</div>
+<section class="card p-3 mb-3" id="fyersConnectionPanel">
+ <h4 class="h5 fw-bold">FYERS personal app — private staging connection</h4>
+ <p class="lab-secondary">For the FYERS individual app creator only. Login happens on FYERS, never in FinReview. No order placement.</p>
+ <div id="fyersConnectStatus" role="status" class="lab-note mb-3">Checking whether your FinReview staging account is approved for FYERS testing…</div>
+ <div class="d-flex gap-2 flex-wrap">
+  <button type="button" class="btn btn-primary" id="connectFyers" disabled>Connect FYERS</button>
+  <button type="button" class="btn btn-outline-secondary" id="refreshFyersStatus">Refresh connection status</button>
+  <button type="button" class="btn btn-outline-primary" id="probeFyersProfile" disabled>Test read-only profile</button>
+  <button type="button" class="btn btn-outline-danger" id="disconnectFyers" disabled>Disconnect locally</button>
+ </div>
+ <p class="lab-secondary small mt-2 mb-0">A saved broker preference is not a connection. OAuth sessions expire daily; successful login does not prove historical/quote data access.</p>
+</section>
 <section class="card p-3 mb-3">
 <h4>Broker preferences (not a connection)</h4>
 <p class="subtle small">Choose your own broker independently for historical candles and quotes. Saving preferences does not connect an account, grant market-data access or store API tokens.</p>
@@ -231,6 +243,79 @@ document.querySelector('#initializePaperAccount').addEventListener('click',async
 document.querySelector('#refresh').addEventListener('click',refresh);
 document.querySelector('#includeHistory').addEventListener('change',refresh);
 
+let fyersTestAvailable=false;
+async function refreshFyersConnection(){
+ const label=document.querySelector('#fyersConnectStatus');
+ const connect=document.querySelector('#connectFyers');
+ const probe=document.querySelector('#probeFyersProfile');
+ const disconnect=document.querySelector('#disconnectFyers');
+ connect.disabled=true;probe.disabled=true;disconnect.disabled=true;
+ if(!token){label.textContent='Log in to your FinReview staging account first.';return;}
+ try{
+  const [cap,stat]=await Promise.all([
+   api('/v2/market/fyers/test-availability'),api('/v2/market/connections')
+  ]);
+  fyersTestAvailable=Boolean(cap.available);
+  const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
+  const connected=records.some(item=>item.state==='STORED_UNVERIFIED');
+  const expired=records.length>0&&!connected;
+  if(!fyersTestAvailable){
+   label.textContent='FYERS login is disabled for this account. The operator must enable the allowlisted personal staging user.';
+   return;
+  }
+  connect.disabled=false;
+  probe.disabled=!connected;
+  disconnect.disabled=records.length===0;
+  label.textContent=connected?
+   'FYERS token encrypted and stored, but market-data permissions have not been checked. Use Test read-only profile.':
+   expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
+   'FYERS staging login is available. Select Connect FYERS to authenticate on the official FYERS page.';
+ }catch(e){
+  label.textContent='FYERS connection status unavailable. '+e.message;
+ }
+}
+document.querySelector('#connectFyers').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersConnectStatus');
+ const button=document.querySelector('#connectFyers');
+ if(!token||!fyersTestAvailable)return;
+ button.disabled=true;label.textContent='Starting FYERS authorization…';
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/oauth/fyers/start',{
+   method:'POST',headers:{Authorization:'Bearer '+token}
+  });
+  const response=await r.json();
+  if(!r.ok)throw Error('Authorization unavailable (HTTP '+r.status+')');
+  const u=new URL(response.authorization_url);
+  if(u.protocol!=='https:'||u.hostname!=='api-t1.fyers.in')throw Error('Unexpected authorization host');
+  window.location.assign(u.href);
+ }catch(e){label.textContent='Unable to start FYERS login: '+e.message;button.disabled=false;}
+});
+document.querySelector('#refreshFyersStatus').addEventListener('click',refreshFyersConnection);
+document.querySelector('#probeFyersProfile').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersConnectStatus');
+ const b=document.querySelector('#probeFyersProfile');b.disabled=true;
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/fyers/test-profile',{
+   method:'POST',headers:{Authorization:'Bearer '+token}
+  });
+  if(!r.ok)throw Error('Profile verification failed (HTTP '+r.status+')');
+  const data=await r.json();
+  label.textContent=data.authenticated?'FYERS read-only profile authenticated. Historical and quote entitlements remain unverified.':
+   'Profile could not be authenticated.';
+ }catch(e){label.textContent=e.message;}
+ finally{b.disabled=false;}
+});
+document.querySelector('#disconnectFyers').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersConnectStatus');
+ if(!window.confirm('Delete the locally stored FYERS token for this FinReview account? This does not revoke it at FYERS.'))return;
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/connections/fyers',{
+   method:'DELETE',headers:{Authorization:'Bearer '+token}
+  });
+  if(!r.ok)throw Error('Disconnect failed (HTTP '+r.status+')');
+  await refreshFyersConnection();
+ }catch(e){label.textContent=e.message;}
+});
 async function loadProviderPreference(){
  if(!token)return;
  try {
@@ -257,5 +342,6 @@ document.querySelector('#providerForm').addEventListener('submit',async event=>{
  }catch(err){notice.textContent='Unable to save selection: '+err.message;}
 });
 loadProviderPreference();
+refreshFyersConnection();
 refresh();
 </script></body></html>
