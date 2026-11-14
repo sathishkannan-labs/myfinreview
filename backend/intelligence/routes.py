@@ -1,7 +1,7 @@
 """FinReview 2.0 protected research APIs (never trade real money)."""
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
-from fastapi import APIRouter, Header, Depends, HTTPException
+from fastapi import APIRouter, Header, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, ConfigDict
 from sqlmodel import Session, select
 from database import get_session
@@ -82,3 +82,51 @@ def get_paper_account(user: User = Depends(current_user),
 def v2_status(user: User = Depends(current_user)):
     return {"version": "2.0-development", "mode": "RESEARCH_ONLY",
             "fyers_trading": False, "real_orders": False}
+
+
+# Historical data is disabled on public Community deployments by default.
+# A shared server-side provider token must NEVER be exposed as an open data proxy.
+@router.get("/market/providers")
+def market_providers(user: User = Depends(current_user)):
+    from .providers import available_providers
+    import os
+    return {"available": available_providers(),
+            "historical_api_enabled": os.getenv("FINREVIEW_V2_MARKET_API_ENABLED", "false").lower() == "true",
+            "execution_mode": "READ_ONLY"}
+
+@router.get("/market/history")
+async def historical_market_data(provider: str, instrument: str, start: date,
+                                 end: date, user: User = Depends(current_user)):
+    import os
+    from .providers import load_history
+    from .market_data import MarketDataError
+    if os.getenv("FINREVIEW_V2_MARKET_API_ENABLED", "false").lower() != "true":
+        raise HTTPException(403, "Market-data API is disabled; enable only in a private licensed deployment")
+    if (end - start).days > 365 or end < start:
+        raise HTTPException(422, "Historical API requests limited to one year; use an offline importer for longer datasets")
+    try:
+        dataset = await load_history(provider, instrument, start, end)
+        return dataset.as_json()
+    except MarketDataError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception:
+        # Never leak broker tokens, provider URLs, or upstream HTTP error payloads.
+        raise HTTPException(503, "Market-data provider unavailable")
+
+@router.post("/market/csv/validate")
+async def validate_csv_upload(request: Request, user: User = Depends(current_user)):
+    from .market_data import parse_csv_history, MarketDataError
+    chunks, size = [], 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > 3_000_000:
+            raise HTTPException(413, "CSV exceeds 3 MB")
+        chunks.append(chunk)
+    try:
+        bars = parse_csv_history(b"".join(chunks))
+    except MarketDataError as exc:
+        raise HTTPException(422, str(exc))
+    return {"valid": True, "rows": len(bars),
+            "first_timestamp": bars[0].timestamp if bars else None,
+            "last_timestamp": bars[-1].timestamp if bars else None,
+            "stored": False, "adjustment": "unverified"}
