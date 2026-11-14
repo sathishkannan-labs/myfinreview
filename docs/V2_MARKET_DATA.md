@@ -44,7 +44,9 @@ timestamp,open,high,low,close,volume
 - All timestamps are normalized to UTC, but date filtering uses Asia/Kolkata exchange-local dates.
 - All prices and volumes must be finite. OHLC must be internally consistent; volume nonnegative. Duplicate timestamps are rejected.
 - The response reports `adjustment=provider_raw_unverified` rather than pretending bars are split/dividend adjusted.
-- This stage does not yet persist historical datasets, infer official market holidays, audit corporate actions or support a validated backtest.
+- This stage has a database candle-cache foundation, but no automatic ingestion/synchronization worker or consumer-facing import endpoint. It does not yet infer official market holidays, audit corporate actions or support a validated backtest.
+- Cached daily candles are isolated per user, provider and instrument; repeated identical imports are idempotent. Changed provider candles are rejected pending explicit reconciliation.
+- The authenticated `/v2/market/analyze-cached` route produces SMA and breakout research observations from cached **completed** daily bars only. This returns NO_DATA/INSUFFICIENT_DATA when appropriate, but does not create persisted trade signals.
 - CSV imports are a **validation-only** path until dedicated, per-user storage, limits, provenance and rollback are built.
 - Exchange-data rights differ from account/API access. Verify storage, analysis, charting, backtesting and redistribution rights with your provider before production use.
 - Historical API availability and rate limits can change. No uninterrupted data coverage is guaranteed.
