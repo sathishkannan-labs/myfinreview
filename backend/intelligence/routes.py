@@ -300,7 +300,14 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
         expiry=conservative_expiry("fyers",datetime.now(timezone.utc))
         for purpose in ("historical","quotes"):
             store_trusted(session,user_id,"fyers",purpose,credentials,expires_at=expiry)
-        return page("FYERS authorization completed. Token stored encrypted; market-data access is not yet verified.")
+        # Redirect only to the fixed, operator-controlled staging UI.
+        # Never forward request parameters, auth_code, state or broker tokens.
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(
+            url="https://finreview-v201-staging-ui.onrender.com/intelligence.html#fyersConnectionPanel",
+            status_code=303,
+            headers=headers,
+        )
     except (BrokerAuthError,RuntimeError,ValueError):
         return page("Authorization was unsuccessful or expired. Return to Research Lab and try again.")
 
