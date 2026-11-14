@@ -27,7 +27,7 @@
 const token=localStorage.getItem('finreview_token');
 const notice=document.querySelector('#notice');
 const t=(s)=>{const e=document.createElement('span');e.textContent=String(s??'—');return e.textContent};
-const date=(s)=>s?new Date(s.endsWith('Z')?s:s+'Z').toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):'—';
+const date=(s)=>s?new Date(/[Zz]|[+-]\\d\\d:\\d\\d$/.test(s)?s:s+'Z').toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):'—';
 async function api(path){
  const r=await fetch(CONFIG.API_URL+path,{headers:{Authorization:'Bearer '+token}});
  if(!r.ok)throw Error('API '+r.status+' — please sign in to your existing FinReview dashboard');
