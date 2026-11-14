@@ -54,7 +54,7 @@ def evaluate_cached_research(session: Session, user_id: int, provider: str, inst
     No holiday-calendar-aware confirmation exists yet.
     """
     now = _ensure_utc(now or datetime.now(timezone.utc))
-    if provider not in {"upstox", "fyers"}:
+    if provider not in {"upstox", "fyers", "zerodha"}:
         raise MarketDataError("Unsupported research provider")
     bars = _closed_history(session, user_id, provider, instrument, now)
     if len(bars) < 51:
@@ -114,7 +114,7 @@ async def synchronize_and_research(session: Session, user_id: int, provider: str
     identical data is idempotent; existing cache data is never overwritten.
     """
     now = _ensure_utc(now or datetime.now(timezone.utc))
-    opts = {"upstox": client} if provider == "upstox" else {"fyers": client}
+    opts = {provider: client} if client is not None else {}
     dataset = await load_history(provider, instrument, start, end, **opts)
     if not dataset.candles:
         return ResearchResult(provider, instrument, 0, 0, 0, "NO_PROVIDER_DATA")
