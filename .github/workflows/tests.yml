@@ -15,6 +15,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -r backend/requirements.txt -r requirements-dev.txt
       - run: python -m pytest tests/test_portfolio.py tests/test_transaction_safety.py tests/test_database_startup.py tests/test_news_loading.py -q
-      - run: python -m pytest tests/test_v2_intelligence.py tests/test_v2_market_data.py tests/test_v2_market_routes.py tests/test_v2_cache_strategy.py -q
+      - run: python -m pytest tests/test_v2_intelligence.py tests/test_v2_market_data.py tests/test_v2_market_routes.py tests/test_v2_cache_strategy.py tests/test_v2_strategy_routes.py -q
       - run: python -m compileall -q backend/intelligence
       - run: node --check frontend/app.js
