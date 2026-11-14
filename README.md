@@ -1,5 +1,8 @@
 # FinReview
 
+> **FinReview 2.x development branch:** Experimental BYO market-data adapters (Upstox Analytics Token, FYERS Standard), historical CSV validation and read-only research endpoints are available on `release/2.x`. These adapters are not yet live-verified and `v2.0.0` is not released. See [FinReview 2.x Market Data Setup](docs/V2_MARKET_DATA.md) and [Release Readiness](docs/V2_RELEASE_PLAN.md). This repository's existing live demo remains on the current Community Edition.
+
+
 > **AI-Assisted Portfolio Intelligence Platform for Indian Investors**
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
