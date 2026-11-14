@@ -5,7 +5,7 @@ from sqlmodel import SQLModel, Field
 from sqlalchemy import UniqueConstraint, CheckConstraint
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(timezone.utc)
 
 class StrategySignal(SQLModel, table=True):
     __tablename__ = "strategy_signals"
