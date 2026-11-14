@@ -130,3 +130,49 @@ async def validate_csv_upload(request: Request, user: User = Depends(current_use
             "first_timestamp": bars[0].timestamp if bars else None,
             "last_timestamp": bars[-1].timestamp if bars else None,
             "stored": False, "adjustment": "unverified"}
+
+
+@router.get("/market/analyze-cached")
+def analyze_cached(provider: str, instrument: str, strategy: str = "breakout",
+                   user: User = Depends(current_user), session: Session = Depends(get_session)):
+    """Read-only deterministic research on last *completed* cached daily candles.
+
+    No new exchange data is downloaded, no signal is persisted, and no paper
+    or live order is created. Lack of fresh enough bars is visible to callers.
+    """
+    from datetime import datetime, timezone, time, timedelta
+    from zoneinfo import ZoneInfo
+    from .candle_cache import read_candles
+    from .strategies import breakout_observation, sma_trend_observation
+    from .market_data import MarketDataError
+    if provider not in ("upstox", "fyers", "csv") or not instrument or len(instrument) > 96:
+        raise HTTPException(422, "Invalid provider or instrument")
+    if strategy not in ("breakout", "sma_trend"):
+        raise HTTPException(422, "Unsupported strategy")
+    now = datetime.now(timezone.utc)
+    cache = read_candles(session, user.id, provider, instrument,
+                         now - timedelta(days=450), now)
+    # Exclude the current Indian trading day until the next day. Incomplete
+    # intraday bars must never be used as completed daily candles.
+    today_ist = now.astimezone(ZoneInfo("Asia/Kolkata")).date()
+    completed = [c for c in cache["bars"]
+                 if c.timestamp.astimezone(ZoneInfo("Asia/Kolkata")).date() < today_ist]
+    if not completed:
+        return {"status": "NO_DATA", "strategy": strategy,
+                "instrument": instrument, "provider": provider,
+                "analysis": None, "execution_mode": "RESEARCH_ONLY"}
+    try:
+        observation = (breakout_observation(completed) if strategy == "breakout"
+                       else sma_trend_observation(completed))
+    except MarketDataError:
+        raise HTTPException(422, "Cached candles failed research validation")
+    return {"status": "INSUFFICIENT_DATA" if observation is None else "READY",
+            "provider": provider, "instrument": instrument, "strategy": strategy,
+            "bars_available": len(completed), "adjustment": "provider_raw_unverified",
+            "coverage": "unverified_partial",
+            "analysis": None if observation is None else {
+                "kind": observation.kind, "state": observation.status,
+                "as_of": observation.as_of, "reference_price": observation.price,
+                "trigger": observation.trigger, "invalidation": observation.invalidation,
+                "atr": observation.atr, "rationale": observation.rationale},
+            "execution_mode": "RESEARCH_ONLY"}
