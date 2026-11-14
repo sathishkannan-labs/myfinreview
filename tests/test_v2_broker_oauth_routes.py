@@ -37,6 +37,7 @@ def test_start_is_off_by_default(db, monkeypatch):
 
 def test_enabled_start_return_only_opaque_state(db, monkeypatch):
     monkeypatch.setenv("FINREVIEW_V2_OAUTH_ENABLED","true")
+    monkeypatch.setenv("FINREVIEW_ENV","staging")
     result=start_broker_authorization("upstox",user=SimpleNamespace(id=1),session=db)
     assert result["provider"]=="upstox"
     assert result["status"]=="PENDING"
@@ -51,3 +52,10 @@ async def test_callback_is_off_by_default(db, monkeypatch):
             "upstox",request=SimpleNamespace(query_params={"state":"fake","code":"fake"}),
             session=db)
     assert error.value.status_code==403
+
+def test_production_never_enables_broker_auth(db, monkeypatch):
+    monkeypatch.setenv("FINREVIEW_V2_OAUTH_ENABLED","true")
+    monkeypatch.setenv("FINREVIEW_ENV","production")
+    with pytest.raises(HTTPException) as err:
+        start_broker_authorization("upstox",user=SimpleNamespace(id=1),session=db)
+    assert err.value.status_code==403
