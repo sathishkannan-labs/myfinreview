@@ -82,3 +82,14 @@ async def test_complete_scopes_to_user(db):
     assert read_trusted(db,2,"upstox","quotes")["access_token"]=="private-token"
     with pytest.raises(BrokerAuthError):
         await complete(db,"upstox",state,"valid-code",client=client)
+
+def test_pending_auth_attempts_are_bounded_per_account(db):
+    now=datetime.now(timezone.utc)
+    for _ in range(3):
+        begin(db,1,"upstox",now=now)
+    with pytest.raises(BrokerAuthError,match="Too many pending"):
+        begin(db,1,"upstox",now=now)
+    # Another user's authorization flow must remain independent.
+    assert begin(db,2,"upstox",now=now)["status"]=="PENDING"
+    # Old attempts cannot block a fresh flow forever.
+    assert begin(db,1,"upstox",now=now+timedelta(minutes=6))["status"]=="PENDING"
