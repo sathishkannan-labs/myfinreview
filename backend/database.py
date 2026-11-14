@@ -55,6 +55,7 @@ def init_db():
     from intelligence.candle_cache import CachedCandle
     from intelligence.provider_preferences import BrokerPreference
     from intelligence.credential_vault import BrokerConnection
+    from intelligence.broker_oauth import BrokerAuthAttempt
     inspector = inspect(engine)
     if not inspector.has_table("user"):
         logger.info("Tables not found. Creating database schema.")
@@ -62,5 +63,5 @@ def init_db():
     else:
         logger.info("Database already initialized. Preserving existing schema.")
     # Additive v2 tables only; do not modify or delete any existing portfolio data.
-    v2_tables = [StrategySignal.__table__, SignalEvent.__table__, PaperAccount.__table__, PaperTrade.__table__, NotificationDelivery.__table__, CachedCandle.__table__, BrokerPreference.__table__, BrokerConnection.__table__]
+    v2_tables = [StrategySignal.__table__, SignalEvent.__table__, PaperAccount.__table__, PaperTrade.__table__, NotificationDelivery.__table__, CachedCandle.__table__, BrokerPreference.__table__, BrokerConnection.__table__, BrokerAuthAttempt.__table__]
     SQLModel.metadata.create_all(engine, tables=v2_tables, checkfirst=True)
