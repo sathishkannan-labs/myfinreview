@@ -41,8 +41,9 @@ def transition(session: Session, signal: StrategySignal, target: str, reason: st
 def create_signal(session: Session, user_id: int, *, symbol: str, strategy: str,
                   source_key: str, reference_price: float, ttl_minutes: int,
                   rationale: str = "", data_timestamp=None, entry_price=None,
-                  invalidation_price=None, target_price=None):
-    now = utc_now()
+                  invalidation_price=None, target_price=None, *, now=None):
+    # Clock injection is internal only, for deterministic simulation/replay tests.
+    now = now or utc_now()
     if not symbol or not strategy or not source_key or ttl_minutes < 1 or ttl_minutes > 4320:
         raise HTTPException(422, "Invalid signal data")
     if reference_price <= 0 or not __import__("math").isfinite(reference_price):
