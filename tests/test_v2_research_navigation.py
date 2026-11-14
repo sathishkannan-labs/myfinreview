@@ -25,3 +25,31 @@ def test_research_workspace_uses_existing_auth_and_apis():
     assert "/v2/signals" in RESEARCH
     assert "/v2/paper-account" in RESEARCH
     assert "/v2/market/preference" in RESEARCH
+
+
+def test_research_workflow_is_primary_and_experimental_controls_collapsed():
+    assert 'id="labReport"' in RESEARCH
+    assert 'id="labMetrics"' in RESEARCH
+    assert 'id="downloadResearchReport"' in RESEARCH
+    assert 'id="labOptional"' in RESEARCH
+    assert RESEARCH.index('id="researchCsvForm"') < RESEARCH.index('id="labOptional"')
+    assert "Historical research report" in RESEARCH
+    assert "not buy/sell signals" in RESEARCH
+    assert "Date unavailable" in RESEARCH
+    assert "Invalid Date" not in RESEARCH
+
+
+def test_inline_research_javascript_syntax(tmp_path):
+    import re
+    import shutil
+    import subprocess
+    import pytest
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js unavailable")
+    scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", RESEARCH)
+    assert scripts
+    js = tmp_path / "research-lab.js"
+    js.write_text("\\n".join(scripts), encoding="utf-8")
+    result = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
