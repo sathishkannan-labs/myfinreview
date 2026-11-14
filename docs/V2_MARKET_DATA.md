@@ -33,6 +33,7 @@ FINREVIEW_V2_MARKET_API_ENABLED=false
 UPSTOX_ANALYTICS_TOKEN=
 FYERS_CLIENT_ID=
 FYERS_ACCESS_TOKEN=
+UPSTOX_ACCESS_TOKEN=  # market-data-authorized token for LTP; different from historical Analytics Token
 ZERODHA_API_KEY=
 ZERODHA_ACCESS_TOKEN=
 ```
@@ -67,6 +68,15 @@ timestamp,open,high,low,close,volume
 - Broker environment variables are **deployment-level** in the current foundation, not per-user. A public multi-user hosted edition requires encrypted per-user credential vaulting, OAuth/session renewal, entitlements, throttling and explicit consent before live broker calls are enabled.
 - The FYERS, Upstox and Zerodha adapters contain no order placement methods. FinReview v2 remains research-only.
 
-## Required before v2.0.0
+
+## Version 2.0.1 LTP quote groundwork
+
+The internal `intelligence.live_quotes.load_quotes` interface now normalizes **read-only LTP snapshots** across FYERS, Upstox V3 and Zerodha. Provider-specific identifiers remain distinct. Each normalized result contains provider, instrument, last price and an explicit `timestamp_verified=false` value when the quote endpoint supplies no independently validated trade timestamp. Do not treat a snapshot receipt time as the exchange trade time, and do not use these snapshots for automatic paper fills until stronger source-time and exchange-calendar checks are implemented.
+
+Upstox V3 LTP requires `UPSTOX_ACCESS_TOKEN` with market-data permissions; the `UPSTOX_ANALYTICS_TOKEN` used for historical access must **not** be assumed sufficient for quotes. No public API route for server-side shared tokens is exposed here. These adapters have mocked tests only; actual broker sessions and permissions remain unverified.
+
+Official docs: [Upstox V3 LTP](https://upstox.com/developer/api-documentation/ltp-v3/), [FYERS quotes](https://fyers.in/api-docs/v3/api/market-data/quotes/), [Zerodha market quotes](https://kite.trade/docs/connect/v3/market-data-and-instruments/).
+
+## Remaining production-readiness gates
 
 Complete a real read-only provider integration check with permissioned credentials, add per-user throttling/caching if opening historical API to multiple users, build strategy signals and calendar-aware reporting, verify paper-trading reconciliation and security, and stage-test the complete interface.
