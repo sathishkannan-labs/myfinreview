@@ -98,7 +98,7 @@ def evaluate_cached_research(session: Session, user_id: int, provider: str, inst
         session, user_id, symbol=instrument, strategy="daily_breakout_sma_research_v1",
         source_key=key, reference_price=last.close, ttl_minutes=60,
         rationale=reason[:1600], data_timestamp=now, entry_price=None,
-        invalidation_price=breakout.invalidation)
+        invalidation_price=breakout.invalidation, now=now)
     return ResearchResult(provider, instrument, 0, 0, len(bars), "WATCHING_CREATED",
                           signal_id=signal.id, source_bar_at=last.timestamp.isoformat())
 
