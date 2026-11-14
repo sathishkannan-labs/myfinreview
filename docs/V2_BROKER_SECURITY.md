@@ -33,3 +33,36 @@ Use an independent key per environment. Without the key the vault **cannot decry
 5. Replace deployment-wide broker tokens for public multi-user endpoints with per-user connections. Current historical-data API is default-disabled for this reason.
 
 The current storage foundation does not prove live broker connectivity, compliance with exchange redistribution licenses, or authorization to place orders. Real trading remains out of scope.
+
+
+## Authorization-code flow in v2.0.1 (disabled by default)
+
+The server supports provider-specific login URL construction, a randomly generated single-use state (SHA-256 hash stored in the database, 5-minute expiry), exact broker-bound state claiming, and a server-to-server auth-code exchange. The callback is purposely **not** enabled in any existing deployment. No real-broker OAuth handshake has been exercised.
+
+| Broker | Registered HTTPS callback | Broker-provided callback fields |
+| --- | --- | --- |
+| FYERS | `/v2/market/oauth/fyers/callback` | `auth_code`, `state` |
+| Upstox | `/v2/market/oauth/upstox/callback` | `code`, `state` |
+| Zerodha | `/v2/market/oauth/zerodha/callback` | `request_token`, `finreview_state` (passed through Kite `redirect_params`; verify with actual app) |
+
+Development-only configuration variables:
+
+```dotenv
+FINREVIEW_V2_OAUTH_ENABLED=false
+FINREVIEW_BROKER_VAULT_KEY=
+FYERS_CLIENT_ID=
+FYERS_APP_SECRET=
+FINREVIEW_FYERS_REDIRECT_URI=
+UPSTOX_CLIENT_ID=
+UPSTOX_CLIENT_SECRET=
+FINREVIEW_UPSTOX_REDIRECT_URI=
+ZERODHA_API_KEY=
+ZERODHA_API_SECRET=
+FINREVIEW_ZERODHA_REDIRECT_URI=
+```
+
+All three redirect URIs must be **HTTPS** and exactly correspond to their broker's registered redirect URI. The service does not accept arbitrary redirect URIs from browser requests. `POST /v2/market/oauth/{provider}/start` requires a FinReview bearer login and, when explicitly enabled, returns a broker-hosted authorization URL. `GET /v2/market/oauth/{provider}/callback` checks the original one-time state before attempting a broker token exchange. On success, only `STORED_UNVERIFIED` metadata is returned; the access token never appears in the API response.
+
+**Critical next gates:** perform a live broker callback smoke test in a private staging environment, ensure load balancer/access logs redact query parameters (authorization codes), validate each broker's callback state echo (especially Zerodha redirect_params), account identity and data entitlements, derive and enforce provider-specific token expiration, implement upstream revocation and token rotation, and add abuse/rate limits and audit monitoring. Do not flip `FINREVIEW_V2_OAUTH_ENABLED` to true on the public Render deployment until these checks are complete.
+
+Documentation used: [FYERS individual-app auth](https://fyers.in/api-docs/v3/api/authentication/individual-app/generate-auth-code/), [FYERS token exchange](https://fyers.in/api-docs/v3/api/authentication/individual-app/validate-auth-code/), [Upstox auth](https://upstox.com/developer/api-documentation/authentication/), [Kite login](https://kite.trade/docs/connect/v3/user/).
