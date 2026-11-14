@@ -25,6 +25,7 @@ def available_providers():
     return {"upstox": bool(os.getenv("UPSTOX_ANALYTICS_TOKEN")),
             "fyers": bool(os.getenv("FYERS_CLIENT_ID") and os.getenv("FYERS_ACCESS_TOKEN")),
             "zerodha": bool(os.getenv("ZERODHA_API_KEY") and os.getenv("ZERODHA_ACCESS_TOKEN")),
+            "upstox_quotes": bool(os.getenv("UPSTOX_ACCESS_TOKEN")),
             "csv": True}
 
 async def load_history(provider: str, instrument: str, start: date, end: date, *,
