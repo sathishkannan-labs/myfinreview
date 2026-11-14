@@ -50,6 +50,6 @@ def test_inline_research_javascript_syntax(tmp_path):
     scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", RESEARCH)
     assert scripts
     js = tmp_path / "research-lab.js"
-    js.write_text("\\n".join(scripts), encoding="utf-8")
+    js.write_text(chr(10).join(scripts), encoding="utf-8")
     result = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
