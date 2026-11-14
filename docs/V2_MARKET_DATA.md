@@ -7,12 +7,16 @@ This document describes **development-stage** adapters on `release/2.x`. The pub
 | Provider | Data type | Implementation status | Key requirement |
 | --- | --- | --- | --- |
 | Upstox V3 | Historical daily OHLCV | Implemented, mocked CI tested; live unverified | User-supplied read-only Analytics Token |
-| FYERS V3 Standard | Historical daily OHLCV + quote adapter | Implemented, not live tested | User-supplied non-trading session |
+| FYERS V3 Standard | Historical daily OHLCV + quote adapter | Implemented, mocked/integration checks pending live access | User-supplied authorized session |
+| Zerodha Kite Connect V3 | Historical daily OHLCV + LTP quotes | Implemented; mocked CI tested, live unverified | User-supplied **paid, data-enabled** Kite Connect session (Personal/free API excludes market data) |
 | CSV | UTC/offset-stamped OHLCV validation | Implemented, mocked CI tested | User-owned, licensed dataset |
 | Yahoo Finance | Existing v1 portfolio pricing (separate code) | Existing, not upgraded to v2 provider contract | Verify Yahoo usage restrictions |
 
 Upstox docs: https://upstox.com/developer/api-documentation/
 FYERS docs: https://fyers.in/api-docs/
+Zerodha historical docs: https://kite.trade/docs/connect/v3/historical/
+Zerodha quotes docs: https://kite.trade/docs/connect/v3/market-quotes/
+Zerodha pricing: https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/what-are-the-charges-for-kite-apis
 
 ## Private deployment configuration
 
@@ -23,11 +27,13 @@ FINREVIEW_V2_MARKET_API_ENABLED=false
 UPSTOX_ANALYTICS_TOKEN=
 FYERS_CLIENT_ID=
 FYERS_ACCESS_TOKEN=
+ZERODHA_API_KEY=
+ZERODHA_ACCESS_TOKEN=
 ```
 
 The new `/v2/market/history` route is **off by default** because a public web API that uses one server-side token could become an unauthorized third-party exchange-data proxy. Enable only when the deployment is private, authenticated, usage-limited, and permitted by provider terms. A public multi-user deployment should use per-user credential vaulting, authorization, quotas and licensing checks rather than a shared server token.
 
-After authenticating to FinReview, GET `/v2/market/providers` reports *configuration presence*, not credential validity. GET `/v2/market/history?provider=upstox&instrument=NSE_EQ%7C<instrument_key>&start=2025-01-01&end=2025-01-31` returns normalized daily OHLCV when explicitly enabled. FYERS requires its own `NSE:<SYMBOL>-EQ` instrument format. Each request is limited to 365 calendar days; this is an application safety limit and **not** a provider historical coverage statement.
+After authenticating to FinReview, GET `/v2/market/providers` reports *configuration presence*, not credential validity. GET `/v2/market/history?provider=upstox&instrument=NSE_EQ%7C<instrument_key>&start=2025-01-01&end=2025-01-31` returns normalized daily OHLCV when explicitly enabled. FYERS requires its own `NSE:<SYMBOL>-EQ` instrument format. Zerodha's **historical** API requires the numeric `instrument_token` from its instruments master (example `408065`); Zerodha's **LTP quotes** API accepts `NSE:INFY`-style exchange:tradingsymbol identifiers. Do not assume provider symbols are interchangeable. Each request is limited to 365 calendar days; this is an application safety limit and **not** a provider historical coverage statement.
 
 The `/v2/market/csv/validate` endpoint accepts a raw UTF-8 CSV request body for an authenticated user, max 3 MB / 50,000 rows. It validates but **does not persist** data.
 
@@ -51,7 +57,9 @@ timestamp,open,high,low,close,volume
 - Exchange-data rights differ from account/API access. Verify storage, analysis, charting, backtesting and redistribution rights with your provider before production use.
 - Historical API availability and rate limits can change. No uninterrupted data coverage is guaranteed.
 - Broker auth tokens may expire; manage session renewal using provider-approved flows only.
-- The FYERS helper has no order placement method. FinReview v2 remains research-only.
+- FYERS, Upstox and Zerodha are optional, with no mandatory or default broker. Account owners can independently save non-secret historical/quotes broker preferences via `GET` and `PUT /v2/market/preference`; this does not connect credentials.
+- Broker environment variables are **deployment-level** in the current foundation, not per-user. A public multi-user hosted edition requires encrypted per-user credential vaulting, OAuth/session renewal, entitlements, throttling and explicit consent before live broker calls are enabled.
+- The FYERS, Upstox and Zerodha adapters contain no order placement methods. FinReview v2 remains research-only.
 
 ## Required before v2.0.0
 
