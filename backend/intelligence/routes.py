@@ -213,7 +213,8 @@ def start_broker_authorization(provider: Literal["fyers", "upstox", "zerodha"],
                                session: Session = Depends(get_session)):
     import os
     from .broker_oauth import begin, BrokerAuthError
-    if os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true":
+    if (os.getenv("FINREVIEW_ENV", "").lower() != "staging" or
+        os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true"):
         raise HTTPException(403, "Broker authentication disabled")
     try:
         return begin(session, user.id, provider)
@@ -236,7 +237,8 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
     from .broker_oauth import complete, BrokerAuthError
     headers = {"Cache-Control": "no-store", "Pragma": "no-cache",
                "Referrer-Policy": "no-referrer"}
-    if os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true":
+    if (os.getenv("FINREVIEW_ENV", "").lower() != "staging" or
+        os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true"):
         raise HTTPException(403, "Broker authentication disabled")
     params = request.query_params
     state = params.get("finreview_state") if provider == "zerodha" else params.get("state")
