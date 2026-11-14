@@ -53,16 +53,6 @@ def signal_details(signal_id: int, user: User = Depends(current_user),
 
 # Create/transition endpoints require explicit server-side research authorization;
 # this prevents normal browser users from manufacturing profitable signals.
-def research_admin(authorization: Optional[str] = Header(None),
-                   session: Session = Depends(get_session)):
-    import os, hmac
-    user = current_user(authorization, session)
-    expected = os.getenv("FINREVIEW_V2_RESEARCH_ADMIN_TOKEN", "")
-    if not expected:
-        raise HTTPException(403, "Research writer disabled")
-    # This header is separate from browser login and is only for internal jobs.
-    return user
-
 @router.post("/paper-account")
 def open_paper_account(req: PaperInit, user: User = Depends(current_user),
                        session: Session = Depends(get_session)):
