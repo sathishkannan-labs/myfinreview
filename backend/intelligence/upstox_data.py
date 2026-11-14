@@ -15,11 +15,15 @@ from .market_data import validate_candles, validate_range, instrument_key, Marke
 UPSTOX_API = "https://api.upstox.com"
 
 class UpstoxReadOnlyData:
-    def __init__(self, token=None, http_client=None):
-        self.token = token if token is not None else os.getenv("UPSTOX_ANALYTICS_TOKEN", "")
+    def __init__(self, token=None, http_client=None, purpose="history"):
+        if purpose not in ("history", "quotes"):
+            raise MarketDataError("Invalid market-data purpose")
+        self.purpose = purpose
+        token_env = "UPSTOX_ANALYTICS_TOKEN" if purpose == "history" else "UPSTOX_ACCESS_TOKEN"
+        self.token = token if token is not None else os.getenv(token_env, "")
         self.client = http_client
         if not self.token:
-            raise MarketDataError("UPSTOX_ANALYTICS_TOKEN not configured")
+            raise MarketDataError(f"{token_env} not configured")
 
     async def history(self, key: str, start: date, end: date, unit="days", interval=1):
         instrument_key(key)
@@ -48,3 +52,32 @@ class UpstoxReadOnlyData:
         candles = validate_candles(rows)
         # Provider may include candles outside requested dates; drop them.
         return [c for c in candles if start <= c.timestamp.astimezone(IST).date() <= end]
+
+    async def quotes(self, instruments: list[str]):
+        """Upstox V3 LTP; a market-data-authorized access token is required.
+
+        Analytics Tokens may be historical-data-only; they are deliberately
+        not used to authenticate this endpoint.
+        """
+        if self.purpose != "quotes":
+            raise MarketDataError("Instantiate UpstoxReadOnlyData(purpose='quotes')")
+        if not isinstance(instruments, list) or not (1 <= len(instruments) <= 50):
+            raise MarketDataError("Choose 1 to 50 instrument keys")
+        for key in instruments:
+            instrument_key(key)
+        headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/json"}
+        url = UPSTOX_API + "/v3/market-quote/ltp"
+        params = {"instrument_key": ",".join(instruments)}
+        if self.client is None:
+            async with httpx.AsyncClient(timeout=12) as client:
+                response = await client.get(url, headers=headers, params=params)
+        else:
+            response = await self.client.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("status") != "success":
+            raise MarketDataError("Upstox quote session or market-data entitlement unavailable")
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise MarketDataError("Malformed Upstox LTP payload")
+        return data
