@@ -18,6 +18,12 @@ Zerodha historical docs: https://kite.trade/docs/connect/v3/historical/
 Zerodha quotes docs: https://kite.trade/docs/connect/v3/market-quotes/
 Zerodha pricing: https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/what-are-the-charges-for-kite-apis
 
+## Community Edition broker selection
+
+Each authenticated user can choose historical and quotes providers independently in `frontend/intelligence.html` or via `GET/PUT /v2/market/preference`. These selections are non-secret preferences and do **not** authorize a broker connection. There is no forced default and no need to register with all three brokers. Upstox is optional for people who already use it; FYERS is optional for FYERS customers; Zerodha is optional for paid data-enabled Kite Connect users.
+
+The current preview does not accept broker tokens or credentials in browser forms. Safely storing and refreshing separate credentials per user will require an encrypted credential vault and provider-approved login flows before this can be offered in the public Community Edition.
+
 ## Private deployment configuration
 
 Do not put credentials in Git, screenshots, README examples, Telegram, frontend JS or public deployments.
