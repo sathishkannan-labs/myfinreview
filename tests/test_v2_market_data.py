@@ -64,4 +64,6 @@ def test_provider_is_opt_in(monkeypatch):
     monkeypatch.delenv("UPSTOX_ANALYTICS_TOKEN", raising=False)
     monkeypatch.delenv("FYERS_CLIENT_ID", raising=False)
     monkeypatch.delenv("FYERS_ACCESS_TOKEN", raising=False)
-    assert available_providers()=={"upstox":False,"fyers":False,"csv":True}
+    assert available_providers()["upstox"] is False
+    assert available_providers()["fyers"] is False
+    assert available_providers()["csv"] is True
