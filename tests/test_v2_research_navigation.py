@@ -47,7 +47,7 @@ def test_inline_research_javascript_syntax(tmp_path):
     node = shutil.which("node")
     if not node:
         pytest.skip("Node.js unavailable")
-    scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", RESEARCH)
+    scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", RESEARCH)
     assert scripts
     js = tmp_path / "research-lab.js"
     js.write_text("\\n".join(scripts), encoding="utf-8")
