@@ -203,3 +203,49 @@ def disconnect_broker(provider: Literal["fyers", "upstox", "zerodha"],
                       session: Session = Depends(get_session)):
     from .credential_vault import disconnect
     return disconnect(session, user.id, provider)
+
+
+# Explicitly disabled for all public deployments until callback registration,
+# storage key management and broker entitlement reviews are completed.
+@router.post("/market/oauth/{provider}/start")
+def start_broker_authorization(provider: Literal["fyers", "upstox", "zerodha"],
+                               user: User = Depends(current_user),
+                               session: Session = Depends(get_session)):
+    import os
+    from .broker_oauth import begin, BrokerAuthError
+    if os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true":
+        raise HTTPException(403, "Broker authentication disabled")
+    try:
+        return begin(session, user.id, provider)
+    except BrokerAuthError:
+        raise HTTPException(503, "Broker app not configured")
+
+
+@router.get("/market/oauth/{provider}/callback")
+async def broker_authorization_callback(provider: Literal["fyers", "upstox", "zerodha"],
+                                        request: Request,
+                                        session: Session = Depends(get_session)):
+    """Broker redirect; its opaque one-time state identifies the initiating user.
+
+    No login token, credentials, or OAuth code is returned to the browser.
+    Do not configure public traffic or operational URL query logging for these
+    callbacks until an independent security review is complete.
+    """
+    import os
+    from fastapi.responses import JSONResponse
+    from .broker_oauth import complete, BrokerAuthError
+    headers = {"Cache-Control": "no-store", "Pragma": "no-cache",
+               "Referrer-Policy": "no-referrer"}
+    if os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true":
+        raise HTTPException(403, "Broker authentication disabled")
+    params = request.query_params
+    state = params.get("finreview_state") if provider == "zerodha" else params.get("state")
+    code = params.get("request_token") if provider == "zerodha" else (
+        params.get("auth_code") if provider == "fyers" else params.get("code"))
+    if not state or not code:
+        raise HTTPException(400, "Authorization callback missing required fields")
+    try:
+        result = await complete(session, provider, state, code)
+        return JSONResponse(result, headers=headers)
+    except BrokerAuthError:
+        raise HTTPException(400, "Broker authorization failed or expired")
