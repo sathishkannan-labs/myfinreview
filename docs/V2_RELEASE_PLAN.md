@@ -8,12 +8,15 @@ Development branch: `release/2.x`. The public `main` branch and existing hosted 
 - Account-isolated read-only `/v2/signals`, `/v2/paper-account`, `/v2/status` endpoints.
 - Optional paper account initialization. No browser endpoints for posting research signals or synthetic fills.
 - FYERS **market-data-only** client (quotes and candles), requiring separately configured non-trading app access.
+- Provider-neutral OHLCV validation, Upstox V3 daily historical adapter, FYERS daily history normalization, and CSV validation-only import.
+- Protected provider status and historical research routes (disabled by default on public deployments).
+- [Provider setup documentation](V2_MARKET_DATA.md) including BYO tokens, privacy and licensing limitations.
 - Telegram HTTP sender and deterministic digest formatter. Neither is scheduled or activated by default.
 - Separate read-only dashboard preview at `frontend/intelligence.html`.
 - CI regression test additions and v2-specific unit tests.
 
 ## Not yet implemented (blocks v2.0.0 final release)
-- Broker authentication handoff, scheduled token renewal by permitted login flow and FYERS live connectivity test.
+- Broker authentication handoff, approved session renewal, and live FYERS/Upstox connectivity and permissions testing.
 - Market calendar-aware 09:00/12:00/15:00 reporting worker and private Telegram delivery scheduling.
 - Actual signal generation from verified FYERS data with immutable strategy versions.
 - Authorised simulation worker, future-data-safe fill modelling, exits, fees and benchmark reports.
