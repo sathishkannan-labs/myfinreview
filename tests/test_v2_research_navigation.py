@@ -17,7 +17,7 @@ def test_v2_status_is_visible_and_does_not_claim_live_trading():
     assert "Broker login and live quotes are disabled" in HOME
     assert "No real orders" in HOME
     assert "FinReview v2.0.1 — Research Lab" in RESEARCH
-    assert "Live broker authentication" in RESEARCH
+    assert "FYERS individual-app login can be enabled only" in RESEARCH
 
 
 def test_research_workspace_uses_existing_auth_and_apis():
