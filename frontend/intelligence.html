@@ -13,6 +13,7 @@
 <h4 id="csvResearchTitle">Analyze historical candles — no broker required</h4>
 <p class="subtle small mb-2">Upload your own historical <strong>daily OHLCV</strong> CSV to inspect 20-bar breakout and 20/50-day SMA observations. Your file is processed in memory, not saved. This is not a live quote or investment recommendation.</p>
 <p class="small subtle mb-2">Required columns: <code>timestamp,open,high,low,close,volume</code>. Use timezone-stamped completed historical daily candles (50+ distinct dates recommended), max 3 MB.</p>
+<p class="small mb-2"><a href="./data/research-sample-synthetic.csv" download="finreview-synthetic-daily-candles.csv">Download synthetic demo CSV</a> · Educational data only; no market prices, no validated exchange calendar.</p>
 <form id="researchCsvForm" class="row g-2 align-items-end">
 <div class="col-md-8"><label class="form-label" for="researchCsvInput">Historical daily CSV</label><input class="form-control" id="researchCsvInput" type="file" accept=".csv,text/csv" required></div>
 <div class="col-md-4"><button id="runCsvResearch" class="btn btn-primary w-100" type="submit">Analyze CSV</button></div>
