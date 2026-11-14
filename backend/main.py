@@ -101,6 +101,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FinReview API - Community Edition", lifespan=lifespan)
 
+# Version 2 research endpoints; no live trading or order placement.
+from intelligence.routes import router as intelligence_router
+app.include_router(intelligence_router)
+
 # --- CORS CONFIGURATION ---
 app.add_middleware(
     CORSMiddleware,
