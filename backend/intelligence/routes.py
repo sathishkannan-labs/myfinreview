@@ -1,6 +1,6 @@
 """FinReview 2.0 protected research APIs (never trade real money)."""
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import APIRouter, Header, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, ConfigDict
 from sqlmodel import Session, select
@@ -176,3 +176,24 @@ def analyze_cached(provider: str, instrument: str, strategy: str = "breakout",
                 "trigger": observation.trigger, "invalidation": observation.invalidation,
                 "atr": observation.atr, "rationale": observation.rationale},
             "execution_mode": "RESEARCH_ONLY"}
+
+
+# Broker preference is non-secret. A selection does not grant API access and
+# deliberately does not accept raw tokens from the browser.
+class BrokerSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    historical_provider: Literal["fyers", "upstox", "zerodha"]
+    quotes_provider: Literal["fyers", "upstox", "zerodha"]
+
+@router.get("/market/preference")
+def read_broker_preference(user: User = Depends(current_user),
+                           session: Session = Depends(get_session)):
+    from .provider_preferences import selected_brokers
+    return selected_brokers(session, user.id)
+
+@router.put("/market/preference")
+def set_broker_preference(request: BrokerSelection, user: User = Depends(current_user),
+                          session: Session = Depends(get_session)):
+    from .provider_preferences import choose_brokers, selected_brokers
+    choose_brokers(session, user.id, request.historical_provider, request.quotes_provider)
+    return selected_brokers(session, user.id)
