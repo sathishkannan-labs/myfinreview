@@ -341,6 +341,11 @@ document.querySelector('#providerForm').addEventListener('submit',async event=>{
    notice.textContent='Broker preferences saved. Connect credentials privately in your own deployment. No API tokens were stored.';
  }catch(err){notice.textContent='Unable to save selection: '+err.message;}
 });
+// Open the FYERS tools when returning from the fixed OAuth callback.
+if(window.location.hash==='#fyersConnectionPanel'){
+ document.querySelector('#labOptional').open=true;
+ document.querySelector('#fyersConnectionPanel').scrollIntoView({block:'start'});
+}
 loadProviderPreference();
 refreshFyersConnection();
 refresh();
