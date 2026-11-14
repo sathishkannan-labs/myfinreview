@@ -2,27 +2,67 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FinReview v2.0.1 — Research Lab</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>body{background:#f5f7fb;color:#172435} .card{border:1px solid #e5e9f0;border-radius:14px} .subtle{color:#667085} td{vertical-align:middle}</style>
+<style>body{background:#f5f7fb;color:#172435} .card{border:1px solid #e5e9f0;border-radius:14px} .subtle{color:#667085} td{vertical-align:middle}
+  :root{--lab-ink:#13233b;--lab-accent:#175bca;--lab-soft:#eaf1ff}
+  body{background:#f3f6fb;color:var(--lab-ink)}
+  .lab-hero{background:linear-gradient(115deg,#14294c,#174c99);border-radius:20px;color:#fff;padding:1.7rem 2rem}
+  .lab-hero p{color:#d5e4fb}
+  .lab-step{background:#fff;border:1px solid #e3eaf4;border-radius:14px;padding:1rem;height:100%}
+  .step-count{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#eaf1ff;color:#175bca;font-weight:700;margin-right:.35rem}
+  .lab-card{border:1px solid #e0e7f2!important;box-shadow:0 5px 18px rgba(17,44,90,.04)}
+  .lab-chip{display:inline-flex;border-radius:100px;padding:.28rem .65rem;font-size:.79rem;background:#eaf1ff;color:#175bca;font-weight:700}
+  .lab-note{background:#f7f9fc;border-left:3px solid #6884b8;padding:.8rem 1rem;font-size:.89rem;border-radius:5px}
+  .lab-metric{font-size:1.45rem;font-weight:750;letter-spacing:-.04em}
+  .lab-result{border:1px solid #dce5f2;border-radius:14px;padding:1.1rem;background:#fff;height:100%}
+  .lab-secondary{font-size:.88rem;color:#58677f}
+  .lab-hidden{display:none}
+  #labOptional summary{cursor:pointer;font-size:1.05rem;font-weight:650}
+  #labOptional[open] summary{margin-bottom:1.2rem}
+  .data-pill{border-radius:12px;background:#f0f5fc;padding:.8rem}
+</style>
 </head>
-<body><main class="container py-4">
-<nav class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-<div><h2 class="mb-0">FinReview <span class="text-primary">2.0.1 Research Lab</span></h2><div class="subtle">Community Edition preview · research-only · broker sign-in disabled in public staging · no real orders</div></div>
-<a class="btn btn-outline-secondary" href="./index.html">← Portfolio dashboard</a></nav>
-<div id="notice" role="status" class="alert alert-info">Checking your existing FinReview login…</div>
-<section class="card p-3 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
-<h4 id="csvResearchTitle">Analyze historical candles — no broker required</h4>
-<p class="subtle small mb-2">Upload your own historical <strong>daily OHLCV</strong> CSV to inspect 20-bar breakout and 20/50-day SMA observations. Your file is processed in memory, not saved. This is not a live quote or investment recommendation.</p>
+<body><main class="container py-4" style="max-width:1120px">
+<nav class="d-flex justify-content-between align-items-center mb-3 gap-2">
+ <div class="fw-bold">FinReview <span class="lab-chip">v2.0.1 Preview</span></div>
+ <a class="btn btn-sm btn-outline-secondary" href="./index.html">← Portfolio dashboard</a>
+</nav>
+<header class="lab-hero mb-3">
+ <div class="lab-chip mb-2" style="background:#e0efff">Research-only workspace</div>
+ <h1 class="h2 fw-bold mb-2">Understand a price trend with your own historical data</h1>
+ <p class="mb-0">Upload daily candles, check whether the latest completed close meets two transparent strategy filters, and review the numbers behind the observation. No broker account or real-money orders required.</p>
+</header>
+<div class="row g-2 mb-3" aria-label="Research workflow">
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">1</span><strong>Bring data</strong><div class="lab-secondary mt-2">Upload a CSV or start with synthetic examples.</div></div></div>
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">2</span><strong>Run checks</strong><div class="lab-secondary mt-2">Validation, moving averages and breakout rules.</div></div></div>
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">3</span><strong>Interpret</strong><div class="lab-secondary mt-2">See evidence, as-of date and limitations. No trade execution.</div></div></div>
+</div>
+<div id="notice" role="status" class="lab-note mb-3">Checking your FinReview login…</div>
+<section class="card lab-card p-4 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
+<div class="lab-chip mb-2">Available now · No broker needed</div>
+<h2 class="h4 fw-bold mb-2" id="csvResearchTitle">Analyze historical daily candles</h2>
+<p class="lab-secondary mb-2">Check 20-bar breakout and 20/50-day moving-average trend rules from a daily OHLCV CSV. This is historical research, not a prediction or recommendation. Files are processed in memory and not saved.</p>
 <p class="small subtle mb-2">Required columns: <code>timestamp,open,high,low,close,volume</code>. Use timezone-stamped completed historical daily candles (50+ distinct dates recommended), max 3 MB.</p>
-<p class="small mb-2"><a href="./data/research-sample-synthetic.csv" download="finreview-synthetic-daily-candles.csv">Download synthetic demo CSV</a> · Educational data only; no market prices, no validated exchange calendar.</p>
+<p class="small mb-3"><a href="./data/research-sample-synthetic.csv" download="finreview-synthetic-daily-candles.csv">Download synthetic demo CSV</a> to try the workflow. Synthetic values are educational examples, <strong>not actual market prices</strong>.</p>
 <form id="researchCsvForm" class="row g-2 align-items-end">
 <div class="col-md-8"><label class="form-label" for="researchCsvInput">Historical daily CSV</label><input class="form-control" id="researchCsvInput" type="file" accept=".csv,text/csv" required></div>
 <div class="col-md-4"><button id="runCsvResearch" class="btn btn-primary w-100" type="submit">Analyze CSV</button></div>
 </form>
-<div id="csvResearchNotice" class="small subtle mt-2" role="status">Nothing uploaded. Research works without linking FYERS, Upstox or Zerodha.</div>
-<div id="csvResearchResults" class="row g-2 mt-1" aria-live="polite"></div>
+<div id="csvResearchNotice" class="small subtle mt-3" role="status">Select a CSV to begin. Research works without broker access.</div>
+<section id="labReport" class="lab-hidden mt-4" aria-labelledby="labReportHeading">
+ <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
+  <div><h3 id="labReportHeading" class="h5 fw-bold mb-1">Historical research report</h3><div class="lab-secondary" id="reportFileName"></div></div>
+  <button class="btn btn-outline-primary btn-sm" id="downloadResearchReport" type="button">Download report (JSON)</button>
+ </div>
+ <div class="row g-2 mb-3" id="labMetrics"></div>
+ <h4 class="h6 fw-bold mb-2">Strategy observations</h4>
+ <div id="csvResearchResults" class="row g-3" aria-live="polite"></div>
+ <div class="lab-note mt-3">These are deterministic historical observations, <strong>not buy/sell signals</strong>. They are not added to the signal register or paper account. Prices, splits/dividends, exchange holidays, and data rights have not been independently verified.</div>
 </section>
+</section>
+<details id="labOptional" class="card lab-card p-4 mb-3"><summary>Experimental tools &amp; broker settings <span class="lab-secondary fw-normal">· Not required for CSV research</span></summary>
+<div class="lab-note mb-3">The following interfaces are development foundations, not end-to-end broker trading features. Live broker authentication, licensed quotes, automated signals and order simulation are not active in this public staging deployment.</div>
 <section class="card p-3 mb-3">
-<h4>Market data provider</h4>
+<h4>Broker preferences (not a connection)</h4>
 <p class="subtle small">Choose your own broker independently for historical candles and quotes. Saving preferences does not connect an account, grant market-data access or store API tokens.</p>
 <form id="providerForm" class="row g-2 align-items-end">
 <div class="col-md-4"><label for="historyProvider" class="form-label">Historical candles</label>
@@ -43,23 +83,24 @@
 <div class="col-md-4"><div class="card p-3"><div class="subtle">Paper cash</div><h2 id="paperCash">—</h2></div></div>
 </div>
 <section class="card p-3 mb-3">
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h4 class="m-0">Signals</h4><div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h4 class="m-0">Operator-generated signals (experimental)</h4><div>
 <label class="me-2"><input type="checkbox" id="includeHistory"> Include expired and historical</label>
 <button class="btn btn-primary btn-sm" id="refresh">Refresh</button></div></div>
 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Symbol</th><th>Strategy</th><th>Status</th><th>Reference</th><th>Created (IST)</th><th>Expires (IST)</th></tr></thead><tbody id="signals"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
 </section>
-<section class="card p-3"><h4>Paper account (simulation foundation)</h4>
+<section class="card p-3"><h4>Paper ledger (incomplete simulation)</h4>
 <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-<button type="button" class="btn btn-outline-primary btn-sm" id="initializePaperAccount">Initialize ₹1,00,000 virtual cash</button>
+<button type="button" class="btn btn-outline-primary btn-sm" id="initializePaperAccount">Initialize experimental virtual balance</button>
 <span class="subtle small" id="paperInitNotice">No orders or fills are simulated from CSV research.</span>
 </div><p class="subtle">No real orders are sent. The ledger is only populated by an authorised simulation worker using recorded market observations.</p>
 <table class="table table-sm"><thead><tr><th>Symbol</th><th>Quantity</th><th>Fill price</th><th>Time</th></tr></thead><tbody id="trades"><tr><td colspan="4">No trades loaded</td></tr></tbody></table></section>
-<p class="small subtle mt-3">Signals are research observations, not investment advice. Always verify the quote, volume, expiry and news. No price feed is shown unless explicitly sourced and timestamped.</p>
+</details>
+<p class="small subtle mt-3">FinReview v2.0.1 is a Community Edition preview. Research observations are informational and not investment advice. No live data feed or real-money orders are enabled.</p>
 </main><script src="./config.js"></script><script>
 const token=localStorage.getItem('finreview_token');
 const notice=document.querySelector('#notice');
 const t=(s)=>{const e=document.createElement('span');e.textContent=String(s??'—');return e.textContent};
-const date=(s)=>s?new Date(/[Zz]|[+-]\\d\\d:\\d\\d$/.test(s)?s:s+'Z').toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):'—';
+const date=(s)=>{if(!s)return '—';const d=new Date(s);return Number.isNaN(d.getTime())?'Date unavailable':d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});};
 async function api(path){
  const r=await fetch(CONFIG.API_URL+path,{headers:{Authorization:'Bearer '+token}});
  if(!r.ok)throw Error('API '+r.status+' — please sign in to your existing FinReview dashboard');
@@ -84,9 +125,17 @@ async function refresh(){
  const trades=document.querySelector('#trades');trades.replaceChildren();
  for(const x of (paper.trades||[])){const tr=document.createElement('tr');for(const v of [x.symbol,x.quantity,x.fill_price,date(x.filled_at)]){const td=document.createElement('td');td.textContent=String(v);tr.appendChild(td);}trades.appendChild(tr);}
  if(!(paper.trades||[]).length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='No simulated fills';tr.appendChild(td);trades.appendChild(tr);}
- notice.className='alert alert-success';notice.textContent='Research-only data loaded · No broker orders enabled';
+ notice.textContent='Signed in · CSV research is available above. Optional operator-generated signals are separate from uploaded CSV observations.';
  }catch(e){notice.className='alert alert-warning';notice.textContent=e.message;}
 }
+let lastReport=null;
+document.querySelector('#downloadResearchReport').addEventListener('click',()=>{
+ if(!lastReport)return;
+ const text=JSON.stringify(lastReport,null,2);
+ const file=new Blob([text],{type:'application/json'});
+ const url=URL.createObjectURL(file);
+ const a=document.createElement('a');a.href=url;a.download='finreview-historical-research.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+});
 document.querySelector('#researchCsvForm').addEventListener('submit',async event=>{
  event.preventDefault();
  const file=document.querySelector('#researchCsvInput').files[0];
@@ -94,6 +143,8 @@ document.querySelector('#researchCsvForm').addEventListener('submit',async event
  const button=document.querySelector('#runCsvResearch');
  const panel=document.querySelector('#csvResearchResults');
  panel.replaceChildren();
+ document.querySelector('#labReport').classList.add('lab-hidden');
+ lastReport=null;
  if(!token){notice.textContent='Sign in to the portfolio dashboard before analyzing data.';return;}
  if(!file || file.size===0 || file.size>3000000){notice.textContent='Choose a nonempty daily candle CSV no larger than 3 MB.';return;}
  button.disabled=true;
@@ -105,21 +156,57 @@ document.querySelector('#researchCsvForm').addEventListener('submit',async event
    });
    const data=await response.json();
    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
-   notice.textContent='Analyzed '+data.rows+' completed daily bars. Data not stored; corporate actions and exchange calendar unverified.';
-   for(const [key,description] of [['breakout','20-bar close breakout'],['sma_trend','20/50-day SMA trend']]){
+   lastReport=data;
+   document.querySelector('#labReport').classList.remove('lab-hidden');
+   const synthetic=file.name.toLowerCase().includes('synthetic');
+   const sampleWarning=synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
+   notice.textContent='Historical analysis completed. Nothing was saved.'+sampleWarning;
+   document.querySelector('#reportFileName').textContent='File: '+file.name+' · '+data.rows+' historical daily candles'+(synthetic?' · SYNTHETIC SAMPLE':'');
+   const metrics=document.querySelector('#labMetrics');metrics.replaceChildren();
+   for(const [heading,value] of [
+      ['Candles validated',String(data.rows)],
+      ['First candle',date(data.first_timestamp)],
+      ['Most recent candle',date(data.last_timestamp)],
+      ['Last historical close','₹'+Number(data.last_close).toFixed(2)]
+   ]){
+     const col=document.createElement('div');col.className='col-6 col-lg-3';
+     const el=document.createElement('div');el.className='data-pill h-100';
+     const label=document.createElement('div');label.className='lab-secondary';label.textContent=heading;
+     const val=document.createElement('div');val.className=heading==='Candles validated'||heading==='Last historical close'?'lab-metric':'fw-semibold mt-2';
+     val.textContent=value;el.append(label,val);col.appendChild(el);metrics.appendChild(col);
+   }
+   for(const [key,description,explanation] of [
+     ['breakout','20-bar breakout','Checks whether the last completed close exceeded the previous 20 daily highs.'],
+     ['sma_trend','20/50-day moving average','Compares the average close of the last 20 daily candles against the last 50.']
+   ]){
      const item=data.strategies[key];
      const col=document.createElement('div');col.className='col-lg-6';
-     const card=document.createElement('div');card.className='border rounded p-3 h-100 bg-light';
-     const heading=document.createElement('h5');heading.textContent=description;heading.className='h6 fw-bold';
-     const status=document.createElement('p');status.className='mb-1';
-     status.textContent=item.status==='READY'?'Observation: '+item.observation.state:'Insufficient history for this strategy';
-     card.append(heading,status);
-     if(item.observation){
-       const details=document.createElement('p');details.className='small mb-1';
-       details.textContent=item.observation.rationale;
-       const asof=document.createElement('p');asof.className='small text-muted mb-0';
-       asof.textContent='As of '+date(item.observation.as_of)+' · Reference price ₹'+Number(item.observation.reference_price).toFixed(2);
-       card.append(details,asof);
+     const card=document.createElement('article');card.className='lab-result';
+     const heading=document.createElement('h5');heading.className='h6 fw-bold';heading.textContent=description;
+     const explain=document.createElement('p');explain.className='lab-secondary';explain.textContent=explanation;
+     const chip=document.createElement('span');chip.className='lab-chip mb-3';
+     const obs=item.observation;
+     chip.textContent=obs?(obs.state==='CANDIDATE'?'Condition met (historical)':'Condition not met (historical)'):'Insufficient history';
+     card.append(heading,explain,chip);
+     if(obs){
+       const details=document.createElement('p');details.className='mb-2';details.textContent=obs.rationale;
+       card.appendChild(details);
+       const stats=document.createElement('dl');stats.className='row small mb-0';
+       for(const [label,value] of [
+         ['As of',date(obs.as_of)],
+         ['Historical close','₹'+Number(obs.reference_price).toFixed(2)],
+         ['Threshold / fast SMA',obs.trigger===null?'—':'₹'+Number(obs.trigger).toFixed(2)],
+         ['ATR',obs.atr===null?'Not calculated':'₹'+Number(obs.atr).toFixed(2)]
+       ]){
+         const dt=document.createElement('dt');dt.className='col-6 lab-secondary';dt.textContent=label;
+         const dd=document.createElement('dd');dd.className='col-6 fw-semibold';dd.textContent=value;
+         stats.append(dt,dd);
+       }
+       card.appendChild(stats);
+     }else{
+       const guidance=document.createElement('p');guidance.className='lab-secondary';
+       guidance.textContent='Upload more completed daily candles to calculate this rule.';
+       card.appendChild(guidance);
      }
      col.appendChild(card);panel.appendChild(col);
    }
