@@ -226,49 +226,98 @@ def disconnect_broker(provider: Literal["fyers", "upstox", "zerodha"],
     return disconnect(session, user.id, provider)
 
 
-# Explicitly disabled for all public deployments until callback registration,
-# storage key management and broker entitlement reviews are completed.
+# FYERS individual application is restricted to its creator. The one permitted
+# staging user ID must be configured explicitly; no shared/public connection.
+def _fyers_staging_owner(user_id=None):
+    import os
+    owner=os.getenv("FINREVIEW_FYERS_TEST_USER_ID","")
+    return (os.getenv("FINREVIEW_ENV","").lower()=="staging" and
+            os.getenv("FINREVIEW_V2_OAUTH_ENABLED","false").lower()=="true" and
+            owner.isdecimal() and int(owner)>0 and
+            (user_id is None or user_id==int(owner)))
+
+
+@router.get("/market/fyers/test-availability")
+def fyers_test_availability(user: User = Depends(current_user)):
+    """Nonsecret user-scoped FYERS staging capability, not an entitlement claim."""
+    return {"available":_fyers_staging_owner(user.id),
+            "mode":"PERSONAL_STAGING_ONLY", "live_validated":False}
+
+
 @router.post("/market/oauth/{provider}/start")
 def start_broker_authorization(provider: Literal["fyers", "upstox", "zerodha"],
                                user: User = Depends(current_user),
                                session: Session = Depends(get_session)):
-    import os
     from .broker_oauth import begin, BrokerAuthError
-    if (os.getenv("FINREVIEW_ENV", "").lower() != "staging" or
-        os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true"):
-        raise HTTPException(403, "Broker authentication disabled")
+    if provider!="fyers" or not _fyers_staging_owner(user.id):
+        raise HTTPException(403, "Broker login unavailable for this staging account")
     try:
         return begin(session, user.id, provider)
     except BrokerAuthError:
-        raise HTTPException(503, "Broker app not configured")
+        raise HTTPException(503, "FYERS authorization unavailable or rate-limited")
 
 
 @router.get("/market/oauth/{provider}/callback")
 async def broker_authorization_callback(provider: Literal["fyers", "upstox", "zerodha"],
                                         request: Request,
                                         session: Session = Depends(get_session)):
-    """Broker redirect; its opaque one-time state identifies the initiating user.
+    """FYERS GET callback; no tokens, codes, or state in response or redirect.
 
-    No login token, credentials, or OAuth code is returned to the browser.
-    Do not configure public traffic or operational URL query logging for these
-    callbacks until an independent security review is complete.
+    Render edge/proxy logs are outside app control; production browser login
+    remains forbidden until the platform's URL logging policy is verified.
     """
-    import os
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import HTMLResponse
     from .broker_oauth import complete, BrokerAuthError
-    headers = {"Cache-Control": "no-store", "Pragma": "no-cache",
-               "Referrer-Policy": "no-referrer"}
-    if (os.getenv("FINREVIEW_ENV", "").lower() != "staging" or
-        os.getenv("FINREVIEW_V2_OAUTH_ENABLED", "false").lower() != "true"):
+    headers={"Cache-Control":"no-store","Pragma":"no-cache",
+             "Referrer-Policy":"no-referrer",
+             "X-Content-Type-Options":"nosniff",
+             "Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
+    def page(message):
+        # No reflected request values: static server-owned content only.
+        return HTMLResponse("<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+              "<meta name='referrer' content='no-referrer'><title>FYERS connection</title></head>"
+              "<body style='font:16px system-ui;max-width:600px;margin:5rem auto;padding:1rem'>"
+              "<h1>FinReview FYERS test</h1><p>"+message+"</p>"
+              "<p>Close this page and return to FinReview Research Lab to check status.</p>"
+              "</body></html>",headers=headers)
+    if provider!="fyers" or not _fyers_staging_owner():
         raise HTTPException(403, "Broker authentication disabled")
-    params = request.query_params
-    state = params.get("finreview_state") if provider == "zerodha" else params.get("state")
-    code = params.get("request_token") if provider == "zerodha" else (
-        params.get("auth_code") if provider == "fyers" else params.get("code"))
+    params=request.query_params
+    state=params.get("state")
+    code=params.get("auth_code")
     if not state or not code:
-        raise HTTPException(400, "Authorization callback missing required fields")
+        return page("Authorization was not completed. Please restart the connection.")
+    # State is user-scoped, one-time and expires in 5 minutes.
+    from .broker_oauth import claim_state, exchange_code
+    from .broker_token_expiry import conservative_expiry
+    from .credential_vault import store_trusted
+    from datetime import datetime, timezone
     try:
-        result = await complete(session, provider, state, code)
-        return JSONResponse(result, headers=headers)
-    except BrokerAuthError:
-        raise HTTPException(400, "Broker authorization failed or expired")
+        user_id=claim_state(session,"fyers",state)
+        if not _fyers_staging_owner(user_id):
+            return page("This FYERS app is not enabled for this staging account.")
+        credentials=await exchange_code("fyers",code)
+        expiry=conservative_expiry("fyers",datetime.now(timezone.utc))
+        for purpose in ("historical","quotes"):
+            store_trusted(session,user_id,"fyers",purpose,credentials,expires_at=expiry)
+        return page("FYERS authorization completed. Token stored encrypted; market-data access is not yet verified.")
+    except (BrokerAuthError,RuntimeError,ValueError):
+        return page("Authorization was unsuccessful or expired. Return to Research Lab and try again.")
+
+
+@router.post("/market/fyers/test-profile")
+async def fyers_test_profile(user: User = Depends(current_user),
+                             session: Session = Depends(get_session)):
+    """Read-only owner-scoped profile check; no broker identity or token returned."""
+    if not _fyers_staging_owner(user.id):
+        raise HTTPException(403, "FYERS test disabled for this account")
+    from .credential_vault import read_trusted
+    from .session_probe import probe_credentials
+    try:
+        credentials=read_trusted(session,user.id,"fyers","quotes")
+        data=await probe_credentials("fyers",credentials)
+        return {"authenticated":data["profile_authenticated"],
+                "historical_entitlement":"UNVERIFIED","quotes_entitlement":"UNVERIFIED",
+                "no_real_orders":True}
+    except Exception:
+        raise HTTPException(503,"FYERS read-only profile verification unavailable")
