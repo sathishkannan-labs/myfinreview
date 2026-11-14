@@ -51,7 +51,7 @@ def status(session: Session, user_id: int):
     now = datetime.now(timezone.utc)
     return {"connections": [{"provider": row.provider, "purpose": row.purpose,
                             "state": ("EXPIRED" if row.expires_at is not None and
-                                      row.expires_at.replace(tzinfo=timezone.utc) <= now
+                                      (row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at.astimezone(timezone.utc)) <= now
                                       else "STORED_UNVERIFIED")}
                            for row in rows],
             "oauth_configured": False, "live_validation": "NOT_PERFORMED"}
