@@ -139,11 +139,13 @@ async def exchange_code(broker: str, code: str, *, client=None):
 
 async def complete(session: Session, broker: str, state: str, code: str, *, client=None, now=None):
     """Consume state BEFORE network exchange. Failed exchanges cannot be replayed."""
-    user_id=claim_state(session, broker, state, now=now)
+    current=_now(now)
+    user_id=claim_state(session, broker, state, now=current)
     credentials=await exchange_code(broker, code, client=client)
-    # Expiry is not inferred: broker-specific token lifecycle handling remains
-    # a release gate. The connection is deliberately STORED_UNVERIFIED.
+    # Use a conservative local upper bound, never a promise of token validity.
+    from .broker_token_expiry import conservative_expiry
+    expiry=conservative_expiry(broker,current)
     for purpose in ("historical", "quotes"):
-        store_trusted(session,user_id,broker,purpose,credentials)
+        store_trusted(session,user_id,broker,purpose,credentials,expires_at=expiry)
     return {"provider":broker,"state":"STORED_UNVERIFIED",
             "live_validation":"NOT_PERFORMED","trading_enabled":False}
