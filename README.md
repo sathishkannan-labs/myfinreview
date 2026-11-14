@@ -1,5 +1,7 @@
 # FinReview
 
+> **Community Edition brokerage choice:** FYERS, Upstox and Zerodha are optional bring-your-own-account integrations on the `release/2.x` branch. Each user may separately select historical and quote providers; no brokerage account is mandatory. Zerodha historical/live market data requires paid Kite Connect; secure per-user OAuth credentials are not yet supported.
+
 > **FinReview 2.x development branch:** Experimental BYO market-data adapters (Upstox Analytics Token, FYERS Standard), historical CSV validation and read-only research endpoints are available on `release/2.x`. These adapters are not yet live-verified and `v2.0.0` is not released. See [FinReview 2.x Market Data Setup](docs/V2_MARKET_DATA.md) and [Release Readiness](docs/V2_RELEASE_PLAN.md). This repository's existing live demo remains on the current Community Edition.
 
 
