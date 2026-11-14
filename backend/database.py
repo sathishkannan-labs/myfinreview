@@ -52,6 +52,7 @@ def init_db():
     from models.portable_models import User, Holding, Transaction, Insight, NewsArticle, AlertRule, AlertEvent, AnalyticsSummary, PriceCache, NewsHash
 
     from intelligence.models import StrategySignal, SignalEvent, PaperAccount, PaperTrade, NotificationDelivery
+    from intelligence.candle_cache import CachedCandle
     inspector = inspect(engine)
     if not inspector.has_table("user"):
         logger.info("Tables not found. Creating database schema.")
@@ -59,5 +60,5 @@ def init_db():
     else:
         logger.info("Database already initialized. Preserving existing schema.")
     # Additive v2 tables only; do not modify or delete any existing portfolio data.
-    v2_tables = [StrategySignal.__table__, SignalEvent.__table__, PaperAccount.__table__, PaperTrade.__table__, NotificationDelivery.__table__]
+    v2_tables = [StrategySignal.__table__, SignalEvent.__table__, PaperAccount.__table__, PaperTrade.__table__, NotificationDelivery.__table__, CachedCandle.__table__]
     SQLModel.metadata.create_all(engine, tables=v2_tables, checkfirst=True)
