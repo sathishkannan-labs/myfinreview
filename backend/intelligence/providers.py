@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from .market_data import Candle, MarketDataError, validate_candles, validate_range
 from .upstox_data import UpstoxReadOnlyData
 from .fyers_data import FyersReadOnlyData
+from .zerodha_data import ZerodhaReadOnlyData
 
 @dataclass(frozen=True)
 class HistoricalDataset:
@@ -23,10 +24,11 @@ class HistoricalDataset:
 def available_providers():
     return {"upstox": bool(os.getenv("UPSTOX_ANALYTICS_TOKEN")),
             "fyers": bool(os.getenv("FYERS_CLIENT_ID") and os.getenv("FYERS_ACCESS_TOKEN")),
+            "zerodha": bool(os.getenv("ZERODHA_API_KEY") and os.getenv("ZERODHA_ACCESS_TOKEN")),
             "csv": True}
 
 async def load_history(provider: str, instrument: str, start: date, end: date, *,
-                       upstox=None, fyers=None):
+                       upstox=None, fyers=None, zerodha=None):
     """Retrieve daily bars without exposing tokens, or mixing adjustments."""
     validate_range(start, end, max_days=3650)
     if provider == "upstox":
@@ -44,8 +46,11 @@ async def load_history(provider: str, instrument: str, start: date, end: date, *
         if not isinstance(rows, list):
             raise MarketDataError("FYERS returned malformed candles")
         candles = [c for c in validate_candles(rows) if start <= c.timestamp.astimezone(ZoneInfo('Asia/Kolkata')).date() <= end]
+    elif provider == "zerodha":
+        client = zerodha or ZerodhaReadOnlyData()
+        candles = await client.history(instrument, start, end)
     else:
-        raise MarketDataError("Unsupported provider; choose upstox or fyers")
+        raise MarketDataError("Unsupported provider; choose FYERS, Upstox or Zerodha")
     # We cannot assume corporate-action adjustment across provider feeds.
     return HistoricalDataset(provider, instrument, "1d", "provider_raw_unverified",
                              tuple(candles))
