@@ -9,6 +9,17 @@
 <div><h2 class="mb-0">FinReview <span class="text-primary">2.0.1 Research Lab</span></h2><div class="subtle">Community Edition preview · research-only · broker sign-in disabled in public staging · no real orders</div></div>
 <a class="btn btn-outline-secondary" href="./index.html">← Portfolio dashboard</a></nav>
 <div id="notice" role="status" class="alert alert-info">Checking your existing FinReview login…</div>
+<section class="card p-3 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
+<h4 id="csvResearchTitle">Analyze historical candles — no broker required</h4>
+<p class="subtle small mb-2">Upload your own historical <strong>daily OHLCV</strong> CSV to inspect 20-bar breakout and 20/50-day SMA observations. Your file is processed in memory, not saved. This is not a live quote or investment recommendation.</p>
+<p class="small subtle mb-2">Required columns: <code>timestamp,open,high,low,close,volume</code>. Use timezone-stamped completed historical daily candles (50+ distinct dates recommended), max 3 MB.</p>
+<form id="researchCsvForm" class="row g-2 align-items-end">
+<div class="col-md-8"><label class="form-label" for="researchCsvInput">Historical daily CSV</label><input class="form-control" id="researchCsvInput" type="file" accept=".csv,text/csv" required></div>
+<div class="col-md-4"><button id="runCsvResearch" class="btn btn-primary w-100" type="submit">Analyze CSV</button></div>
+</form>
+<div id="csvResearchNotice" class="small subtle mt-2" role="status">Nothing uploaded. Research works without linking FYERS, Upstox or Zerodha.</div>
+<div id="csvResearchResults" class="row g-2 mt-1" aria-live="polite"></div>
+</section>
 <section class="card p-3 mb-3">
 <h4>Market data provider</h4>
 <p class="subtle small">Choose your own broker independently for historical candles and quotes. Saving preferences does not connect an account, grant market-data access or store API tokens.</p>
@@ -36,7 +47,11 @@
 <button class="btn btn-primary btn-sm" id="refresh">Refresh</button></div></div>
 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Symbol</th><th>Strategy</th><th>Status</th><th>Reference</th><th>Created (IST)</th><th>Expires (IST)</th></tr></thead><tbody id="signals"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
 </section>
-<section class="card p-3"><h4>Paper trading</h4><p class="subtle">No real orders are sent. The ledger is only populated by an authorised simulation worker using recorded market observations.</p>
+<section class="card p-3"><h4>Paper account (simulation foundation)</h4>
+<div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+<button type="button" class="btn btn-outline-primary btn-sm" id="initializePaperAccount">Initialize ₹1,00,000 virtual cash</button>
+<span class="subtle small" id="paperInitNotice">No orders or fills are simulated from CSV research.</span>
+</div><p class="subtle">No real orders are sent. The ledger is only populated by an authorised simulation worker using recorded market observations.</p>
 <table class="table table-sm"><thead><tr><th>Symbol</th><th>Quantity</th><th>Fill price</th><th>Time</th></tr></thead><tbody id="trades"><tr><td colspan="4">No trades loaded</td></tr></tbody></table></section>
 <p class="small subtle mt-3">Signals are research observations, not investment advice. Always verify the quote, volume, expiry and news. No price feed is shown unless explicitly sourced and timestamped.</p>
 </main><script src="./config.js"></script><script>
@@ -71,6 +86,60 @@ async function refresh(){
  notice.className='alert alert-success';notice.textContent='Research-only data loaded · No broker orders enabled';
  }catch(e){notice.className='alert alert-warning';notice.textContent=e.message;}
 }
+document.querySelector('#researchCsvForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const file=document.querySelector('#researchCsvInput').files[0];
+ const notice=document.querySelector('#csvResearchNotice');
+ const button=document.querySelector('#runCsvResearch');
+ const panel=document.querySelector('#csvResearchResults');
+ panel.replaceChildren();
+ if(!token){notice.textContent='Sign in to the portfolio dashboard before analyzing data.';return;}
+ if(!file || file.size===0 || file.size>3000000){notice.textContent='Choose a nonempty daily candle CSV no larger than 3 MB.';return;}
+ button.disabled=true;
+ notice.textContent='Validating and analyzing historical candles…';
+ try{
+   const response=await fetch(CONFIG.API_URL+'/v2/market/csv/research',{
+     method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'text/csv'},
+     body:file
+   });
+   const data=await response.json();
+   if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
+   notice.textContent='Analyzed '+data.rows+' completed daily bars. Data not stored; corporate actions and exchange calendar unverified.';
+   for(const [key,description] of [['breakout','20-bar close breakout'],['sma_trend','20/50-day SMA trend']]){
+     const item=data.strategies[key];
+     const col=document.createElement('div');col.className='col-lg-6';
+     const card=document.createElement('div');card.className='border rounded p-3 h-100 bg-light';
+     const heading=document.createElement('h5');heading.textContent=description;heading.className='h6 fw-bold';
+     const status=document.createElement('p');status.className='mb-1';
+     status.textContent=item.status==='READY'?'Observation: '+item.observation.state:'Insufficient history for this strategy';
+     card.append(heading,status);
+     if(item.observation){
+       const details=document.createElement('p');details.className='small mb-1';
+       details.textContent=item.observation.rationale;
+       const asof=document.createElement('p');asof.className='small text-muted mb-0';
+       asof.textContent='As of '+date(item.observation.as_of)+' · Reference price ₹'+Number(item.observation.reference_price).toFixed(2);
+       card.append(details,asof);
+     }
+     col.appendChild(card);panel.appendChild(col);
+   }
+ }catch(err){notice.textContent='Unable to analyze: '+err.message;}
+ finally{button.disabled=false;}
+});
+document.querySelector('#initializePaperAccount').addEventListener('click',async()=>{
+ const notice=document.querySelector('#paperInitNotice');
+ if(!token){notice.textContent='Sign in first.';return;}
+ try{
+   const r=await fetch(CONFIG.API_URL+'/v2/paper-account',{
+     method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+     body:JSON.stringify({initial_cash:100000})
+   });
+   const result=await r.json();
+   if(!r.ok)throw Error(typeof result.detail==='string'?result.detail:'HTTP '+r.status);
+   notice.textContent='Virtual account initialized (or already exists). This does not create simulated trades.';
+   await refresh();
+ }catch(e){notice.textContent='Unable to initialize: '+e.message;}
+});
+
 document.querySelector('#refresh').addEventListener('click',refresh);
 document.querySelector('#includeHistory').addEventListener('change',refresh);
 
