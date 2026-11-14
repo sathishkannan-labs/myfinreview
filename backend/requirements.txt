@@ -12,3 +12,4 @@ psycopg2-binary
 passlib[bcrypt]
 vaderSentiment
 boto3
+cryptography
