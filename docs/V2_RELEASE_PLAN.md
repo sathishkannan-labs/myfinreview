@@ -7,7 +7,8 @@ Development branch: `release/2.x`. The public `main` branch and existing hosted 
 - Time-bound signal state machine; expiration is checked on reads even when workers are down.
 - Account-isolated read-only `/v2/signals`, `/v2/paper-account`, `/v2/status` endpoints.
 - Optional paper account initialization. No browser endpoints for posting research signals or synthetic fills.
-- FYERS **market-data-only** client (quotes and candles), requiring separately configured non-trading app access.
+- FYERS **market-data-only** client (quotes and candles), requiring separately configured data access.
+- Optional Zerodha Kite Connect V3 read-only historical/quote adapter, including paid data-entitlement notice; per-user broker selection is stored without credentials. All three providers remain optional (no default broker).
 - Provider-neutral OHLCV validation, Upstox V3 daily historical adapter, FYERS daily history normalization, and CSV validation-only import.
 - Protected provider status and historical research routes (disabled by default on public deployments).
 - Account-isolated, source-attributed historical daily candle cache; exact duplicate imports are idempotent and revised source data are rejected pending reconciliation.
@@ -22,7 +23,7 @@ Development branch: `release/2.x`. The public `main` branch and existing hosted 
 - CI regression test additions and v2-specific unit tests.
 
 ## Not yet implemented (blocks v2.0.0 final release)
-- Broker authentication handoff, approved session renewal, and live FYERS/Upstox connectivity and permissions testing.
+- Per-user secure broker authentication/credential vault, approved session renewal and live FYERS/Upstox/Zerodha connectivity and entitlement testing. Current non-secret preferences do not imply configured access.
 - Verified, automatically refreshed NSE/BSE exchange calendar and deployed scheduling infrastructure; real Telegram credential connectivity and failure monitoring. Current worker requires explicitly approved session dates and trusted operator invocation.
 - Live-verified FYERS/Upstox ingestion, completed-candle quality verification, exchange holiday-aware orchestration, production strategy versions, actionable signal validation and exchange-calculated expiry.
 - Authorised simulation worker, future-data-safe fill modelling, exits, fees and benchmark reports.
