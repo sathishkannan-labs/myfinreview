@@ -1,12 +1,12 @@
 # FinReview v2.0.1 — Broker credential security foundation
 
-**Development-only, NOT a complete brokerage login flow.** This document covers the encrypted-at-rest storage foundation on release/2.0.1. FYERS, Upstox and Zerodha remain optional; users may choose different providers for historical candles and live quotes.
+**Development-only, NOT a production-ready brokerage login flow.** This document covers the encrypted-at-rest storage foundation on release/2.0.1. FYERS, Upstox and Zerodha remain optional; users may choose different providers for historical candles and live quotes.
 
 ## Implemented
 
 - Per-user, per-broker, per-purpose connection records in a separate additive table, encrypted at rest with Fernet.
 - Account/purpose binding within the authenticated ciphertext; wrong-account or wrong-purpose access is rejected.
-- No browser or public REST endpoint to write raw access tokens or API secrets.
+- No browser or public REST endpoint to write raw access tokens or API secrets. An opt-in (`FINREVIEW_V2_OAUTH_ENABLED=true`) server-side broker authorization-code flow now exists, but is disabled by default until independently validated. It accepts only broker-returned one-time codes and opaque state.
 - Authenticated `GET /v2/market/connections`: metadata only; never returns credentials or encrypted ciphertext.
 - Authenticated `DELETE /v2/market/connections/{provider}`: removes the authenticated user's locally stored credentials for that broker, for both quote and historical purposes. This **does not revoke** tokens at the broker.
 - Expired sessions are not decrypted for use; wrong/missing vault key fails closed.
