@@ -13,6 +13,7 @@ Development branch: `release/2.x`. The public `main` branch and existing hosted 
 - Account-isolated, source-attributed historical daily candle cache; exact duplicate imports are idempotent and revised source data are rejected pending reconciliation.
 - Deterministic SMA, ATR and close-based breakout observations using completed daily candles only, with no automatic order placement.
 - Authenticated read-only `/v2/market/analyze-cached` returns research observations or clear NO_DATA/INSUFFICIENT_DATA states.
+- Opt-in operator-triggered provider-history synchronization into account-isolated cache; initial daily-breakout/SMA candidate research is idempotent and creates WATCHING-only records when explicitly enabled. No live market confirmation or scheduled messaging yet.
 - [Provider setup documentation](V2_MARKET_DATA.md) including BYO tokens, privacy and licensing limitations.
 - Telegram HTTP sender and deterministic digest formatter. Neither is scheduled or activated by default.
 - Separate read-only dashboard preview at `frontend/intelligence.html`.
@@ -21,7 +22,7 @@ Development branch: `release/2.x`. The public `main` branch and existing hosted 
 ## Not yet implemented (blocks v2.0.0 final release)
 - Broker authentication handoff, approved session renewal, and live FYERS/Upstox connectivity and permissions testing.
 - Market calendar-aware 09:00/12:00/15:00 reporting worker and private Telegram delivery scheduling.
-- End-to-end verified FYERS/Upstox ingestion into cache, strategy job orchestration, persisted signals with immutable strategy versions and exchange-calculated expiry.
+- Live-verified FYERS/Upstox ingestion, completed-candle quality verification, exchange holiday-aware orchestration, production strategy versions, actionable signal validation and exchange-calculated expiry.
 - Authorised simulation worker, future-data-safe fill modelling, exits, fees and benchmark reports.
 - Production-grade migration with rollback and database backup validation.
 - Integrated navigation and finished user interface for the existing Community dashboard.
