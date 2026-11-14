@@ -145,7 +145,7 @@ def analyze_cached(provider: str, instrument: str, strategy: str = "breakout",
     from .candle_cache import read_candles
     from .strategies import breakout_observation, sma_trend_observation
     from .market_data import MarketDataError
-    if provider not in ("upstox", "fyers", "csv") or not instrument or len(instrument) > 96:
+    if provider not in ("upstox", "fyers", "zerodha", "csv") or not instrument or len(instrument) > 96:
         raise HTTPException(422, "Invalid provider or instrument")
     if strategy not in ("breakout", "sma_trend"):
         raise HTTPException(422, "Unsupported strategy")
