@@ -53,3 +53,13 @@ def test_inline_research_javascript_syntax(tmp_path):
     js.write_text(chr(10).join(scripts), encoding="utf-8")
     result = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_private_fyers_connect_is_not_open_to_other_brokers():
+    assert 'id="connectFyers"' in RESEARCH
+    assert 'id="refreshFyersStatus"' in RESEARCH
+    assert 'id="probeFyersProfile"' in RESEARCH
+    assert 'id="disconnectFyers"' in RESEARCH
+    assert '/v2/market/fyers/test-availability' in RESEARCH
+    assert '/v2/market/oauth/fyers/start' in RESEARCH
+    assert 'u.hostname!==\'api-t1.fyers.in\'' in RESEARCH
