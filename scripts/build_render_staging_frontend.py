@@ -29,6 +29,9 @@ def build(raw_url: str):
     if TARGET.exists():
         shutil.rmtree(TARGET)
     shutil.copytree(SOURCE, TARGET)
+    # Static CDNs serve PHP files as text; never publish PHP examples.
+    for php_file in TARGET.rglob("*.php"):
+        php_file.unlink()
     runtime = 'window.FINREVIEW_API_URL = ' + json.dumps(url) + ';\n'
     (TARGET / "config.runtime.js").write_text(runtime, encoding="utf-8")
     for page in TARGET.glob("*.html"):
