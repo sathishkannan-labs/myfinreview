@@ -77,6 +77,8 @@ Upstox V3 LTP requires `UPSTOX_ACCESS_TOKEN` with market-data permissions; the `
 
 Official docs: [Upstox V3 LTP](https://upstox.com/developer/api-documentation/ltp-v3/), [FYERS quotes](https://fyers.in/api-docs/v3/api/market-data/quotes/), [Zerodha market quotes](https://kite.trade/docs/connect/v3/market-data-and-instruments/).
 
+For v2.0.1 development, the encrypted broker connection storage foundation is documented in [V2_BROKER_SECURITY.md](V2_BROKER_SECURITY.md). User-facing OAuth/token connection remains disabled. GET and DELETE /v2/market/connections expose safe metadata and local disconnect only.
+
 ## Remaining production-readiness gates
 
 Complete a real read-only provider integration check with permissioned credentials, add per-user throttling/caching if opening historical API to multiple users, build strategy signals and calendar-aware reporting, verify paper-trading reconciliation and security, and stage-test the complete interface.
