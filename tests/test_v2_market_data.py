@@ -67,3 +67,4 @@ def test_provider_is_opt_in(monkeypatch):
     assert available_providers()["upstox"] is False
     assert available_providers()["fyers"] is False
     assert available_providers()["csv"] is True
+    assert "upstox_quotes" in available_providers()
