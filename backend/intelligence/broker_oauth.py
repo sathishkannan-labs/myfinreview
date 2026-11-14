@@ -56,6 +56,20 @@ def begin(session: Session, user_id: int, broker: str, *, now=None):
         raise BrokerAuthError("Invalid account")
     client_id, _secret, redirect = broker_settings(broker)
     current=_now(now)
+    # Cap outstanding attempts to limit abuse and uncontrolled DB growth.
+    outstanding=session.exec(select(BrokerAuthAttempt).where(
+        BrokerAuthAttempt.user_id==user_id,
+        BrokerAuthAttempt.broker==broker,
+        BrokerAuthAttempt.claimed_at.is_(None))).all()
+    pending=0
+    for attempt in outstanding:
+        expiry=attempt.expires_at
+        if expiry.tzinfo is None:
+            expiry=expiry.replace(tzinfo=timezone.utc)
+        if expiry>current:
+            pending+=1
+    if pending>=3:
+        raise BrokerAuthError("Too many pending broker authorization attempts")
     state=secrets.token_urlsafe(32)
     session.add(BrokerAuthAttempt(user_id=user_id, broker=broker,
                 state_hash=hashlib.sha256(state.encode()).hexdigest(),
