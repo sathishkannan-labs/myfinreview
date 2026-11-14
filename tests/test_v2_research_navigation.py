@@ -16,8 +16,8 @@ def test_v2_status_is_visible_and_does_not_claim_live_trading():
     assert "v2.0.1 Preview" in HOME
     assert "Broker login and live quotes are disabled" in HOME
     assert "No real orders" in HOME
-    assert "2.0.1 Research Lab" in RESEARCH
-    assert "broker sign-in disabled" in RESEARCH
+    assert "FinReview v2.0.1 — Research Lab" in RESEARCH
+    assert "Live broker authentication" in RESEARCH
 
 
 def test_research_workspace_uses_existing_auth_and_apis():
