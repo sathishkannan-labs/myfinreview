@@ -38,11 +38,22 @@ def test_start_is_off_by_default(db, monkeypatch):
 def test_enabled_start_return_only_opaque_state(db, monkeypatch):
     monkeypatch.setenv("FINREVIEW_V2_OAUTH_ENABLED","true")
     monkeypatch.setenv("FINREVIEW_ENV","staging")
-    result=start_broker_authorization("upstox",user=SimpleNamespace(id=1),session=db)
-    assert result["provider"]=="upstox"
+    monkeypatch.setenv("FINREVIEW_FYERS_TEST_USER_ID","1")
+    monkeypatch.setenv("FYERS_CLIENT_ID","app-100")
+    monkeypatch.setenv("FYERS_APP_SECRET","test-not-real-secret")
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI","https://example.org/v2/market/oauth/fyers/callback")
+    result=start_broker_authorization("fyers",user=SimpleNamespace(id=1),session=db)
+    assert result["provider"]=="fyers"
     assert result["status"]=="PENDING"
-    assert "secret" not in result["authorization_url"]
+    assert "test-not-real-secret" not in result["authorization_url"]
     assert "state=" in result["authorization_url"]
+    with pytest.raises(HTTPException) as err:
+        start_broker_authorization("fyers",user=SimpleNamespace(id=2),session=db)
+    assert err.value.status_code==403
+    with pytest.raises(HTTPException) as err:
+        start_broker_authorization("upstox",user=SimpleNamespace(id=1),session=db)
+    assert err.value.status_code==403
+
 
 @pytest.mark.asyncio
 async def test_callback_is_off_by_default(db, monkeypatch):
