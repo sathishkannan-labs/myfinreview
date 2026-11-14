@@ -187,3 +187,19 @@ def set_broker_preference(request: BrokerSelection, user: User = Depends(current
     from .provider_preferences import choose_brokers, selected_brokers
     choose_brokers(session, user.id, request.historical_provider, request.quotes_provider)
     return selected_brokers(session, user.id)
+
+
+# Broker connections: metadata inspection and deletion only.
+# OAuth handoff and all secret-accepting public routes remain disabled.
+@router.get("/market/connections")
+def broker_connection_status(user: User = Depends(current_user),
+                             session: Session = Depends(get_session)):
+    from .credential_vault import status
+    return status(session, user.id)
+
+@router.delete("/market/connections/{provider}")
+def disconnect_broker(provider: Literal["fyers", "upstox", "zerodha"],
+                      user: User = Depends(current_user),
+                      session: Session = Depends(get_session)):
+    from .credential_vault import disconnect
+    return disconnect(session, user.id, provider)
