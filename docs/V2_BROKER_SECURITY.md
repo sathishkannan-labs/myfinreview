@@ -68,6 +68,23 @@ All three redirect URIs must be **HTTPS** and exactly correspond to their broker
 Documentation used: [FYERS individual-app auth](https://fyers.in/api-docs/v3/api/authentication/individual-app/generate-auth-code/), [FYERS token exchange](https://fyers.in/api-docs/v3/api/authentication/individual-app/validate-auth-code/), [Upstox auth](https://upstox.com/developer/api-documentation/authentication/), [Kite login](https://kite.trade/docs/connect/v3/user/).
 
 
+## Staging-only market-data verification
+
+The private `python -m intelligence.staging_smoke` command is now available for authorized, **live read-only** smoke testing. It runs only with `--live`, `FINREVIEW_ENV=staging` and `FINREVIEW_V2_BROKER_PROBES_ENABLED=true`. The broker account must already be authenticated and its credentials in the encrypted account-isolated vault. Do not put access tokens in CLI arguments or screenshots.
+
+Example from the backend directory (replace identifiers/dates with your permitted, actual broker instruments and a recent completed exchange session):
+
+```bash
+FINREVIEW_ENV=staging FINREVIEW_V2_BROKER_PROBES_ENABLED=true \\
+python -m intelligence.staging_smoke --live --user-id 1 --broker fyers \\
+  --historical-instrument NSE:INFY-EQ --quote-instrument NSE:INFY-EQ \\
+  --start 2026-11-10 --end 2026-11-11
+```
+
+The tool checks broker profile identity, a short sample of historical daily bars and a separate current LTP quote. It prints only broker and nonsecret result states/counts, **not** prices, user identities or tokens. A valid profile does not guarantee data access. Market-data licensing, caching rights and token rotation remain separate checks. The command does not persist anything or place orders.
+
+**FYERS licensing limitation:** Official FYERS documentation says an individual app is restricted to its creator. A public multi-user Community deployment cannot reuse a single individual-app client ID/secret to onboard arbitrary FYERS customers. End users must use an approved app model or independent self-hosted configurations, subject to FYERS rules. The existing global FYERS app configuration must NOT be presented as a general third-party multi-user integration.
+
 ## Read-only broker session probe (v2.0.1)
 
 The internal `intelligence.session_probe.probe_stored` function is explicitly **disabled** unless `FINREVIEW_V2_BROKER_PROBES_ENABLED=true` in a trusted staging worker. It retrieves the account's decrypted token only inside the backend, calls the official broker **profile** endpoint, validates the broker/user identity fields, and returns a keyed fingerprint rather than a broker account ID, email, PAN, phone or token. The fingerprint requires an independent server-side secret `FINREVIEW_BROKER_IDENTITY_HMAC_KEY` (at least 32 characters). Never use the vault encryption key for this purpose.
