@@ -7,6 +7,9 @@ import os
 from datetime import date
 from urllib.parse import quote
 import httpx
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 from .market_data import validate_candles, validate_range, instrument_key, MarketDataError
 
 UPSTOX_API = "https://api.upstox.com"
@@ -44,4 +47,4 @@ class UpstoxReadOnlyData:
             raise MarketDataError("Upstox returned malformed candles")
         candles = validate_candles(rows)
         # Provider may include candles outside requested dates; drop them.
-        return [c for c in candles if start <= c.timestamp.date() <= end]
+        return [c for c in candles if start <= c.timestamp.astimezone(IST).date() <= end]
