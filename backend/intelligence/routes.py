@@ -122,6 +122,27 @@ async def validate_csv_upload(request: Request, user: User = Depends(current_use
             "stored": False, "adjustment": "unverified"}
 
 
+@router.post("/market/csv/research")
+async def research_uploaded_csv(request: Request, user: User = Depends(current_user)):
+    """Research user-supplied daily candles without any broker authorization.
+
+    The submitted bytes are validation-only and never written to a database.
+    No symbols, source names, tokens or broker credentials are accepted here.
+    """
+    from .market_data import MarketDataError
+    from .research_csv import analyze_csv_bytes
+    chunks, size = [], 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > 3_000_000:
+            raise HTTPException(413, "CSV exceeds 3 MB")
+        chunks.append(chunk)
+    try:
+        return analyze_csv_bytes(b"".join(chunks))
+    except MarketDataError as exc:
+        raise HTTPException(422, str(exc))
+
+
 @router.get("/market/analyze-cached")
 def analyze_cached(provider: str, instrument: str, strategy: str = "breakout",
                    user: User = Depends(current_user), session: Session = Depends(get_session)):
