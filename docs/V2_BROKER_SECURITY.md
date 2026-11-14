@@ -66,3 +66,16 @@ All three redirect URIs must be **HTTPS** and exactly correspond to their broker
 **Critical next gates:** perform a live broker callback smoke test in a private staging environment, ensure load balancer/access logs redact query parameters (authorization codes), validate each broker's callback state echo (especially Zerodha redirect_params), account identity and data entitlements, derive and enforce provider-specific token expiration, implement upstream revocation and token rotation, and add abuse/rate limits and audit monitoring. Do not flip `FINREVIEW_V2_OAUTH_ENABLED` to true on the public Render deployment until these checks are complete.
 
 Documentation used: [FYERS individual-app auth](https://fyers.in/api-docs/v3/api/authentication/individual-app/generate-auth-code/), [FYERS token exchange](https://fyers.in/api-docs/v3/api/authentication/individual-app/validate-auth-code/), [Upstox auth](https://upstox.com/developer/api-documentation/authentication/), [Kite login](https://kite.trade/docs/connect/v3/user/).
+
+
+## Read-only broker session probe (v2.0.1)
+
+The internal `intelligence.session_probe.probe_stored` function is explicitly **disabled** unless `FINREVIEW_V2_BROKER_PROBES_ENABLED=true` in a trusted staging worker. It retrieves the account's decrypted token only inside the backend, calls the official broker **profile** endpoint, validates the broker/user identity fields, and returns a keyed fingerprint rather than a broker account ID, email, PAN, phone or token. The fingerprint requires an independent server-side secret `FINREVIEW_BROKER_IDENTITY_HMAC_KEY` (at least 32 characters). Never use the vault encryption key for this purpose.
+
+This is a profile/authentication probe, **not** a live price, historical entitlement, subscription or streaming verification. It deliberately returns `historical_entitlement=UNVERIFIED` and `quotes_entitlement=UNVERIFIED` even on HTTP 200.
+
+- FYERS profile: https://fyers.in/api-docs/v3/api/account/profile/
+- Upstox profile: https://upstox.com/developer/api-documentation/get-profile/
+- Zerodha Kite profile: https://kite.trade/docs/connect/v3/user/
+
+The probe has no browser route. Do not enable it on shared production until authorization, request quotas, audit/PII retention and multi-tenant behavior have passed independent testing. Ensure no HTTP tracing system logs Authorization headers. Mock tests do **not** confirm real account connectivity.
