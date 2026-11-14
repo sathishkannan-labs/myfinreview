@@ -2,6 +2,7 @@
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone, timedelta
+from zoneinfo import ZoneInfo
 from .market_data import Candle, MarketDataError, validate_candles, validate_range
 from .upstox_data import UpstoxReadOnlyData
 from .fyers_data import FyersReadOnlyData
@@ -36,13 +37,13 @@ async def load_history(provider: str, instrument: str, start: date, end: date, *
             raise MarketDataError("Use an official FYERS exchange:symbol")
         client = fyers or FyersReadOnlyData()
         # Historical API uses UNIX seconds; FYERS timestamps are UTC.
-        from_epoch = int(datetime.combine(start, time.min, timezone.utc).timestamp())
-        to_epoch = int(datetime.combine(end+timedelta(days=1), time.min, timezone.utc).timestamp())-1
+        from_epoch = int(datetime.combine(start, time.min, ZoneInfo('Asia/Kolkata')).timestamp())
+        to_epoch = int(datetime.combine(end+timedelta(days=1), time.min, ZoneInfo('Asia/Kolkata')).timestamp())-1
         payload = await client.history(instrument, "D", from_epoch, to_epoch)
         rows = payload.get("candles")
         if not isinstance(rows, list):
             raise MarketDataError("FYERS returned malformed candles")
-        candles = [c for c in validate_candles(rows) if start <= c.timestamp.date() <= end]
+        candles = [c for c in validate_candles(rows) if start <= c.timestamp.astimezone(ZoneInfo('Asia/Kolkata')).date() <= end]
     else:
         raise MarketDataError("Unsupported provider; choose upstox or fyers")
     # We cannot assume corporate-action adjustment across provider feeds.
