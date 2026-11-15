@@ -12,10 +12,11 @@ from .market_smoke import make_client
 from .providers import load_history
 from .live_quotes import load_quotes
 from .strategies import breakout_observation, sma_trend_observation
+from .fyers_symbols import is_current_equity
 
 IST=ZoneInfo("Asia/Kolkata")
-# Bounded instruments to prevent turning a personal individual FYERS app into
-# an unbounded, shared quote proxy. Extend only with licensed approval.
+# Backwards compatibility for existing test samples; live validation uses the
+# current FYERS NSE Capital Market Symbol Master instead of hard-coded tickers.
 INSTRUMENTS=("NSE:INFY-EQ","NSE:RELIANCE-EQ","NSE:HDFCBANK-EQ")
 
 
@@ -32,8 +33,8 @@ def _result(obs):
 async def research_from_fyers(session, user_id:int, instrument:str, *, now=None,
                               history_client=None, quote_client=None):
     """User-scoped, read-only, small response; provider timestamps unverified."""
-    if instrument not in INSTRUMENTS:
-        raise MarketDataError("Choose a supported research instrument")
+    if not await is_current_equity(instrument):
+        raise MarketDataError("Choose a current NSE equity from the FYERS symbol list")
     now=now or datetime.now(timezone.utc)
     if now.tzinfo is None or now.utcoffset() is None:
         raise MarketDataError("Timezone-aware reference required")
