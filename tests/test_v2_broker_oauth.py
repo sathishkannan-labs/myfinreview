@@ -135,6 +135,8 @@ def test_fyers_session_isolation_and_cancel(db, monkeypatch):
     from main import _issue_token
 
     monkeypatch.setenv("AUTH_SECRET_KEY", "fixture-session-secret-at-least-32-bytes")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
     monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
     auth = "Bearer " + _issue_token(1)
     other_session = "Bearer " + _issue_token(1)
