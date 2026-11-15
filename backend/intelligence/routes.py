@@ -312,9 +312,32 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
         return page("Authorization was unsuccessful or expired. Return to Research Lab and try again.")
 
 
+@router.get("/market/fyers/symbols")
+async def fyers_personal_symbols(
+    q: str = "",
+    user: User = Depends(current_user),
+):
+    """Owner-only symbol discovery from FYERS's public NSE cash-market master."""
+    import os
+    from fastapi.responses import JSONResponse
+    from .fyers_symbols import search_symbols
+    if (not _fyers_staging_owner(user.id) or
+        os.getenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","false").lower()!="true"):
+        raise HTTPException(403, "Personal symbol search unavailable")
+    if len(q.strip()) < 2 or len(q) > 64:
+        return JSONResponse({"results":[]},headers={"Cache-Control":"no-store"})
+    try:
+        results=await search_symbols(q)
+    except Exception:
+        raise HTTPException(503,"FYERS instrument directory temporarily unavailable")
+    return JSONResponse({"results":results,"exchange":"NSE","segment":"EQUITY",
+                         "source":"FYERS_SYMBOL_MASTER"},
+                        headers={"Cache-Control":"no-store, private"})
+
+
 @router.get("/market/fyers/research")
 async def fyers_personal_research(
-    instrument: Literal["NSE:INFY-EQ","NSE:RELIANCE-EQ","NSE:HDFCBANK-EQ"],
+    instrument: str,
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
 ):
