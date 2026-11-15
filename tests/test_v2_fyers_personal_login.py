@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/"backend"))
 from models.portable_models import User
 from intelligence.routes import (
     fyers_test_availability,start_broker_authorization,
-    broker_authorization_callback)
+    broker_authorization_callback, fyers_test_market_data)
 from intelligence.credential_vault import status,read_trusted
 
 @pytest.fixture
@@ -73,3 +73,60 @@ async def test_callback_never_reflects_secrets_and_stores_only_for_owner(db,monk
 def test_container_disables_uvicorn_url_access_log():
     docker=(Path(__file__).resolve().parents[1]/"Dockerfile").read_text()
     assert "--no-access-log" in docker
+
+@pytest.mark.asyncio
+async def test_market_probe_is_off_for_wrong_user_and_no_explicit_opt_in(db,monkeypatch):
+    from fastapi import HTTPException
+    monkeypatch.delenv("FINREVIEW_V2_BROKER_PROBES_ENABLED",raising=False)
+    with pytest.raises(HTTPException) as exc:
+        await fyers_test_market_data(user=SimpleNamespace(id=1),session=db)
+    assert exc.value.status_code==403
+    monkeypatch.setenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","true")
+    with pytest.raises(HTTPException) as exc:
+        await fyers_test_market_data(user=SimpleNamespace(id=2),session=db)
+    assert exc.value.status_code==403
+
+
+@pytest.mark.asyncio
+async def test_market_probe_is_account_scoped_and_never_discloses_prices(db,monkeypatch):
+    import intelligence.market_smoke as smoke
+    from intelligence.market_smoke import MarketSmokeResult
+    monkeypatch.setenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","true")
+    seen={}
+    async def fake_check(session,user_id,broker,**kwargs):
+        seen.update(user=user_id,broker=broker,kwargs=kwargs)
+        return MarketSmokeResult("fyers","AUTHENTICATED","VERIFIED_SAMPLE",
+                                 "VERIFIED_SAMPLE",4,"private-fingerprint")
+    monkeypatch.setattr(smoke,"check_stored_market_access",fake_check)
+    result=await fyers_test_market_data(user=SimpleNamespace(id=1),session=db)
+    assert seen["user"]==1 and seen["broker"]=="fyers"
+    assert seen["kwargs"]["history_instrument"]=="NSE:INFY-EQ"
+    assert seen["kwargs"]["quote_instrument"]=="NSE:INFY-EQ"
+    assert (seen["kwargs"]["end"]-seen["kwargs"]["start"]).days==6
+    assert result["profile"]=="AUTHENTICATED"
+    assert result["history_bars"]==4
+    assert result["trading_enabled"] is False
+    assert "fingerprint" not in str(result).lower()
+    assert "access_token" not in str(result)
+    assert "last_price" not in str(result)
+
+
+@pytest.mark.asyncio
+async def test_market_probe_failure_is_generic(db,monkeypatch):
+    from fastapi import HTTPException
+    import intelligence.market_smoke as smoke
+    monkeypatch.setenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","true")
+    async def bad(*args,**kwargs):
+        raise RuntimeError("secret-broker-response-DO-NOT-LEAK")
+    monkeypatch.setattr(smoke,"check_stored_market_access",bad)
+    with pytest.raises(HTTPException) as err:
+        await fyers_test_market_data(user=SimpleNamespace(id=1),session=db)
+    assert err.value.status_code==503
+    assert "secret-broker-response" not in str(err.value.detail)
+
+
+def test_staging_ui_exposes_readonly_probe_without_prices():
+    html=(Path(__file__).resolve().parents[1]/"frontend/intelligence.html").read_text()
+    assert 'id="probeFyersData"' in html
+    assert "/v2/market/fyers/test-data" in html
+    assert "Reauthorize" in html
