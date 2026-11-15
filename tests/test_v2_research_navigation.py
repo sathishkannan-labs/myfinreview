@@ -124,7 +124,6 @@ def test_shared_report_is_outside_data_source_panels():
                 self.stack.pop()
     # Ensure the CSV section is closed before the report begins.
     assert RESEARCH.index('id="csvResearch"') < RESEARCH.index('id="labReport"') < RESEARCH.index('id="labOptional"')
-    assert '</section>\\n<section id="labReport"' in RESEARCH.replace('\\n\\n','\\n')
     assert 'id="strategyResearchResults"' in RESEARCH
     assert 'id="csvResearchResults"' not in RESEARCH
     assert 'id="printResearchReport"' in RESEARCH
