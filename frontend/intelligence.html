@@ -30,6 +30,13 @@
   .lab-stat{font-size:.8rem;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:#61728b}
   .lab-status-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#216cc5;margin-right:6px}
   .lab-callout{border:1px solid #d9e4f2;border-radius:12px;padding:1.1rem;background:#fff}
+  #fyersSymbolMatches{max-height:240px;overflow-y:auto;box-shadow:0 8px 20px rgba(15,23,42,.12);position:relative;z-index:5}
+  #fyersSymbolMatches .list-group-item{cursor:pointer}
+  #fyersSymbolMatches .list-group-item:focus{outline:2px solid #175bca;outline-offset:-2px}
+  .app-header{background:#fff;border-bottom:1px solid #e2e8f0}
+  .app-header .nav-link{color:#64748b;font-weight:500}
+  .app-header .nav-link.active{color:#2563eb;border-bottom:2px solid #2563eb}
+  .app-header .navbar-brand{font-weight:700;color:#0f172a}
   @media print{
     body{background:#fff;color:#111}
     nav,.lab-hero,.lab-step,#notice,#liveBrokerResearch,#csvResearch,#labOptional,.lab-footer,button{display:none!important}
@@ -38,11 +45,17 @@
   }
 </style>
 </head>
-<body><main class="container py-4" style="max-width:1120px">
-<nav class="d-flex justify-content-between align-items-center mb-3 gap-2">
- <div class="fw-bold">FinReview <span class="lab-chip">Community Research · v2.0.1</span></div>
- <a class="btn btn-sm btn-outline-secondary" href="./index.html">← Portfolio dashboard</a>
+<body>
+<nav class="app-header navbar navbar-expand-lg sticky-top mb-3" aria-label="FinReview navigation">
+ <div class="container">
+  <a class="navbar-brand" href="./index.html">FinReview</a>
+  <div class="d-flex align-items-center flex-wrap gap-3">
+   <a class="nav-link" href="./index.html">Dashboard &amp; Portfolio</a>
+   <a class="nav-link active" aria-current="page" href="./intelligence.html">Research Lab <span class="badge bg-primary">v2.0.1</span></a>
+  </div>
+ </div>
 </nav>
+<main class="container pb-4" style="max-width:1120px">
 <header class="lab-hero mb-3">
  <div class="lab-chip mb-2" style="background:#e0efff">Research Workspace</div>
  <h1 class="h2 fw-bold mb-2">Explore historical market trends</h1>
@@ -59,12 +72,15 @@
  <h2 id="liveBrokerResearchTitle" class="h4 fw-bold">Research actual FYERS historical data</h2>
  <p class="lab-secondary">Uses the encrypted FYERS connection already stored for your allowlisted staging account. Pick a supported equity and run 20/50-day moving-average and 20-bar breakout checks on completed daily candles. A separate quote snapshot is displayed when available; it is <strong>not</strong> treated as a completed daily close or a verified real-time exchange feed.</p>
  <div class="row g-2 align-items-end">
-  <div class="col-md-7"><label for="fyersResearchSymbol" class="form-label">Equity</label>
-  <select class="form-select" id="fyersResearchSymbol">
-   <option value="NSE:INFY-EQ">Infosys (NSE)</option>
-   <option value="NSE:RELIANCE-EQ">Reliance Industries (NSE)</option>
-   <option value="NSE:HDFCBANK-EQ">HDFC Bank (NSE)</option>
-  </select></div>
+  <div class="col-md-7"><label for="fyersResearchSymbol" class="form-label">Find an NSE-listed equity</label>
+   <input type="search" class="form-control" id="fyersResearchSymbol"
+    placeholder="Search company or ticker, e.g. Infosys, SBIN" autocomplete="off"
+    role="combobox" aria-autocomplete="list" aria-expanded="false"
+    aria-controls="fyersSymbolMatches" maxlength="64">
+   <div class="list-group mt-1" id="fyersSymbolMatches" role="listbox" hidden></div>
+   <p class="small lab-secondary mt-1 mb-0" id="fyersSymbolStatus" role="status">Type two or more characters to search the current FYERS NSE equity directory.</p>
+   <input type="hidden" id="fyersSelectedSymbol" value="">
+  </div>
   <div class="col-md-5"><button class="btn btn-primary w-100" id="runFyersResearch" type="button" disabled>Analyze FYERS historical data</button></div>
  </div>
  <p class="lab-note mt-3 mb-0" id="fyersResearchStatus" role="status">Checking personal broker session…</p>
@@ -367,7 +383,7 @@ async function refreshFyersConnection(){
   const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
   const connected=records.some(item=>item.state==='STORED_UNVERIFIED');
   document.querySelector('#liveBrokerResearch').hidden=!fyersTestAvailable;
-  document.querySelector('#runFyersResearch').disabled=!fyersTestAvailable||!connected;
+  document.querySelector('#runFyersResearch').disabled=!fyersTestAvailable||!connected||!fyersSelected.value;
   document.querySelector('#fyersResearchStatus').textContent=connected?
     'FYERS connection available. Choose an equity to run historical research.':
     'FYERS session missing or expired. Reconnect from Personal staging diagnostics to use broker data.';
@@ -415,6 +431,73 @@ document.querySelector('#openFyersConnection').addEventListener('click',()=>{
  detail.open=true;
  document.querySelector('#fyersConnectionPanel').scrollIntoView({behavior:'smooth',block:'start'});
 });
+// Search the current FYERS NSE cash-market instrument master, without leaking
+// personal access tokens or providing public/shared broker data.
+const fyersInput=document.querySelector('#fyersResearchSymbol');
+const fyersMatchList=document.querySelector('#fyersSymbolMatches');
+const fyersSelected=document.querySelector('#fyersSelectedSymbol');
+const fyersSearchStatus=document.querySelector('#fyersSymbolStatus');
+let fyersSearchSeq=0;
+let fyersSearchTimer=null;
+function clearFyersSuggestions(){
+ fyersMatchList.replaceChildren();
+ fyersMatchList.hidden=true;
+ fyersInput.setAttribute('aria-expanded','false');
+}
+fyersInput.addEventListener('input',()=>{
+ fyersSelected.value='';
+ document.querySelector('#runFyersResearch').disabled=true;
+ clearFyersSuggestions();
+ if(fyersSearchTimer)clearTimeout(fyersSearchTimer);
+ const q=fyersInput.value.trim();
+ const request=++fyersSearchSeq;
+ if(q.length<2){fyersSearchStatus.textContent='Enter at least two characters to search NSE equities.';return;}
+ if(!fyersTestAvailable){fyersSearchStatus.textContent='Personal broker search is not available for this account.';return;}
+ fyersSearchStatus.textContent='Searching FYERS instruments…';
+ fyersSearchTimer=setTimeout(async()=>{
+  try{
+   const response=await fetch(CONFIG.API_URL+'/v2/market/fyers/symbols?q='+encodeURIComponent(q),{
+    headers:{Authorization:'Bearer '+token},cache:'no-store'
+   });
+   if(!response.ok)throw Error('Instrument directory unavailable (HTTP '+response.status+')');
+   const data=await response.json();
+   if(request!==fyersSearchSeq||fyersInput.value.trim()!==q)return;
+   clearFyersSuggestions();
+   const rows=Array.isArray(data.results)?data.results:[];
+   if(!rows.length){fyersSearchStatus.textContent='No matching NSE EQ symbol found. Try another name or ticker.';return;}
+   for(const row of rows){
+    const choice=document.createElement('button');choice.type='button';
+    choice.className='list-group-item list-group-item-action';
+    choice.setAttribute('role','option');
+    choice.textContent=row.name+' · '+row.symbol;
+    choice.addEventListener('click',()=>{
+     fyersSelected.value=row.symbol;
+     fyersInput.value=row.name+' ('+row.symbol+')';
+     clearFyersSuggestions();
+     fyersSearchStatus.textContent='Selected: '+row.symbol+' · FYERS NSE cash-market instrument';
+     document.querySelector('#runFyersResearch').disabled=false;
+     fyersInput.focus();
+    });
+    fyersMatchList.appendChild(choice);
+   }
+   fyersMatchList.hidden=false;
+   fyersInput.setAttribute('aria-expanded','true');
+   fyersSearchStatus.textContent=rows.length+' matching instruments. Select one from the list.';
+  }catch(err){
+   if(request===fyersSearchSeq)fyersSearchStatus.textContent=err.message;
+  }
+ },280);
+});
+fyersInput.addEventListener('keydown',event=>{
+ if(event.key==='Escape'){clearFyersSuggestions();return;}
+ if(event.key==='ArrowDown'&&!fyersMatchList.hidden){
+  event.preventDefault();
+  fyersMatchList.querySelector('button')?.focus();
+ }
+});
+fyersMatchList.addEventListener('keydown',event=>{
+ if(event.key==='Escape'){event.preventDefault();clearFyersSuggestions();fyersInput.focus();}
+});
 document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
  const button=document.querySelector('#runFyersResearch');
  const notice=document.querySelector('#fyersResearchStatus');
@@ -424,7 +507,8 @@ document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
  lastReport=null;
  notice.textContent='Fetching FYERS daily candles and quote with your encrypted broker session…';
  try{
-  const symbol=document.querySelector('#fyersResearchSymbol').value;
+  const symbol=fyersSelected.value;
+  if(!symbol){notice.textContent='Choose a matching equity from the FYERS search suggestions.';return;}
   const res=await fetch(CONFIG.API_URL+'/v2/market/fyers/research?instrument='+encodeURIComponent(symbol),{
    headers:{Authorization:'Bearer '+token},cache:'no-store'
   });
