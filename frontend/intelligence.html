@@ -19,17 +19,28 @@
   #labOptional summary{cursor:pointer;font-size:1.05rem;font-weight:650}
   #labOptional[open] summary{margin-bottom:1.2rem}
   .data-pill{border-radius:12px;background:#f0f5fc;padding:.8rem}
+  [hidden]{display:none!important}
+  .lab-choice{border:1px solid #dce6f3;background:white;border-radius:14px;padding:1rem;display:flex;gap:.9rem;align-items:center;min-height:90px}
+  .lab-choice strong{display:block}
+  .lab-choice p{margin:0;color:#64748b;font-size:.86rem}
+  .lab-summary{border:1px solid #d9e6f6;background:#f3f8ff;border-radius:14px;padding:1.2rem}
+  .lab-summary h3{font-size:1.12rem;font-weight:700}
+  .lab-good{color:#14644a}.lab-muted{color:#596579}
+  .lab-footer{border-top:1px solid #e4eaf2;padding-top:1rem}
+  .lab-stat{font-size:.8rem;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:#61728b}
+  .lab-status-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#216cc5;margin-right:6px}
+  .lab-callout{border:1px solid #d9e4f2;border-radius:12px;padding:1.1rem;background:#fff}
 </style>
 </head>
 <body><main class="container py-4" style="max-width:1120px">
 <nav class="d-flex justify-content-between align-items-center mb-3 gap-2">
- <div class="fw-bold">FinReview <span class="lab-chip">v2.0.1 Preview</span></div>
+ <div class="fw-bold">FinReview <span class="lab-chip">Community Research · v2.0.1</span></div>
  <a class="btn btn-sm btn-outline-secondary" href="./index.html">← Portfolio dashboard</a>
 </nav>
 <header class="lab-hero mb-3">
- <div class="lab-chip mb-2" style="background:#e0efff">Research-only workspace</div>
- <h1 class="h2 fw-bold mb-2">Understand a price trend with your own historical data</h1>
- <p class="mb-0">Upload daily candles, check whether the latest completed close meets two transparent strategy filters, and review the numbers behind the observation. No broker account or real-money orders required.</p>
+ <div class="lab-chip mb-2" style="background:#e0efff">Research Workspace</div>
+ <h1 class="h2 fw-bold mb-2">Explore historical market trends</h1>
+ <p class="mb-0">Research validated historical price data using transparent moving-average and breakout rules. Compare the observations, understand their limitations and export a report. No trading or investment recommendations.</p>
 </header>
 <div class="row g-2 mb-3" aria-label="Research workflow">
  <div class="col-md-4"><div class="lab-step"><span class="step-count">1</span><strong>Bring data</strong><div class="lab-secondary mt-2">Upload a CSV or start with synthetic examples.</div></div></div>
@@ -38,28 +49,40 @@
 </div>
 <div id="notice" role="status" class="lab-note mb-3">Checking your FinReview login…</div>
 <section class="card lab-card p-4 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
-<div class="lab-chip mb-2">Available now · No broker needed</div>
-<h2 class="h4 fw-bold mb-2" id="csvResearchTitle">Analyze historical daily candles</h2>
-<p class="lab-secondary mb-2">Check 20-bar breakout and 20/50-day moving-average trend rules from a daily OHLCV CSV. This is historical research, not a prediction or recommendation. Files are processed in memory and not saved.</p>
-<p class="small subtle mb-2">Required columns: <code>timestamp,open,high,low,close,volume</code>. Use timezone-stamped completed historical daily candles (50+ distinct dates recommended), max 3 MB.</p>
-<p class="small mb-3"><a href="./data/research-sample-synthetic.csv" download="finreview-synthetic-daily-candles.csv">Download synthetic demo CSV</a> to try the workflow. Synthetic values are educational examples, <strong>not actual market prices</strong>.</p>
+<div class="lab-chip mb-2">No broker account required</div>
+<h2 class="h4 fw-bold mb-2" id="csvResearchTitle">Start a historical research report</h2>
+<p class="lab-secondary mb-3">Choose a sample to see how the analysis works, or bring your own completed daily candle data. Only your submitted historical prices are analyzed. No file contents are saved.</p>
+<div class="row g-3 mb-3" aria-label="Select a research data source">
+ <div class="col-md-6"><div class="lab-choice">
+  <div class="flex-grow-1"><strong>Explore the sample</strong><p>65 synthetic daily candles for a guided example, never real market data</p></div>
+  <button type="button" class="btn btn-outline-primary btn-sm text-nowrap" id="runDemoResearch">Try sample</button>
+ </div></div>
+ <div class="col-md-6"><div class="lab-choice">
+  <div><strong>Import your own historical CSV</strong><p>Use your own sourced daily OHLCV data for a meaningful report</p></div>
+ </div></div>
+</div>
+<details class="mb-3"><summary class="small fw-semibold">CSV format and data requirements</summary>
+ <p class="small subtle mt-2 mb-1">Columns: <code>timestamp,open,high,low,close,volume</code>. Timestamps must have a timezone; include only completed daily candles (50+ dates recommended), maximum 3 MB.</p>
+ <a class="small" href="./data/research-sample-synthetic.csv" download="finreview-synthetic-daily-candles.csv">Download sample CSV for reference</a>
+</details>
 <form id="researchCsvForm" class="row g-2 align-items-end">
 <div class="col-md-8"><label class="form-label" for="researchCsvInput">Historical daily CSV</label><input class="form-control" id="researchCsvInput" type="file" accept=".csv,text/csv" required></div>
 <div class="col-md-4"><button id="runCsvResearch" class="btn btn-primary w-100" type="submit">Analyze CSV</button></div>
 </form>
-<div id="csvResearchNotice" class="small subtle mt-3" role="status">Select a CSV to begin. Research works without broker access.</div>
+<div id="csvResearchNotice" class="lab-note mt-3" role="status">Ready to research. Choose “Try sample” or upload your historical CSV.</div>
 <section id="labReport" class="lab-hidden mt-4" aria-labelledby="labReportHeading">
  <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
-  <div><h3 id="labReportHeading" class="h5 fw-bold mb-1">Historical research report</h3><div class="lab-secondary" id="reportFileName"></div></div>
+  <div><h3 id="labReportHeading" class="h5 fw-bold mb-1">Your historical research report</h3><div class="lab-secondary" id="reportFileName"></div></div>
   <button class="btn btn-outline-primary btn-sm" id="downloadResearchReport" type="button">Download report (JSON)</button>
  </div>
+ <div id="labOverview" class="lab-summary mb-3" role="status"></div>
  <div class="row g-2 mb-3" id="labMetrics"></div>
  <h4 class="h6 fw-bold mb-2">Strategy observations</h4>
  <div id="csvResearchResults" class="row g-3" aria-live="polite"></div>
  <div class="lab-note mt-3">These are deterministic historical observations, <strong>not buy/sell signals</strong>. They are not added to the signal register or paper account. Prices, splits/dividends, exchange holidays, and data rights have not been independently verified.</div>
 </section>
 </section>
-<details id="labOptional" class="card lab-card p-4 mb-3"><summary>Experimental tools &amp; broker settings <span class="lab-secondary fw-normal">· Not required for CSV research</span></summary>
+<details id="labOptional" class="card lab-card p-4 mb-3" hidden><summary>Personal staging diagnostics <span class="lab-secondary fw-normal">· Maintainer only</span></summary>
 <div class="lab-note mb-3">The following interfaces are development foundations, not end-to-end broker trading features. FYERS individual-app login can be enabled only for an allowlisted staging account. Licensed quotes, automated signals and order simulation are not active in the Community preview.</div>
 <section class="card p-3 mb-3" id="fyersConnectionPanel">
  <h4 class="h5 fw-bold">FYERS personal app — private staging connection</h4>
@@ -109,7 +132,9 @@
 </div><p class="subtle">No real orders are sent. The ledger is only populated by an authorised simulation worker using recorded market observations.</p>
 <table class="table table-sm"><thead><tr><th>Symbol</th><th>Quantity</th><th>Fill price</th><th>Time</th></tr></thead><tbody id="trades"><tr><td colspan="4">No trades loaded</td></tr></tbody></table></section>
 </details>
-<p class="small subtle mt-3">FinReview v2.0.1 is a Community Edition preview. Research observations are informational and not investment advice. No live data feed or real-money orders are enabled.</p>
+<footer class="lab-footer small lab-secondary mt-4">
+ <strong>Research limitations:</strong> These observations describe completed historical candles, not buy/sell signals, forecasts or investment advice. Data provenance, corporate-action adjustment, exchange holidays and feed permissions must be verified by the data owner. No live orders are available.
+</footer>
 </main><script src="./config.js"></script><script>
 const token=localStorage.getItem('finreview_token');
 const notice=document.querySelector('#notice');
