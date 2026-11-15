@@ -30,6 +30,12 @@
   .lab-stat{font-size:.8rem;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:#61728b}
   .lab-status-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#216cc5;margin-right:6px}
   .lab-callout{border:1px solid #d9e4f2;border-radius:12px;padding:1.1rem;background:#fff}
+  @media print{
+    body{background:#fff;color:#111}
+    nav,.lab-hero,.lab-step,#notice,#liveBrokerResearch,#csvResearch,#labOptional,.lab-footer,button{display:none!important}
+    #labReport{display:block!important;border:0!important;box-shadow:none!important;margin:0!important;padding:0!important}
+    .lab-result{break-inside:avoid}
+  }
 </style>
 </head>
 <body><main class="container py-4" style="max-width:1120px">
@@ -87,17 +93,18 @@
 <div class="col-md-4"><button id="runCsvResearch" class="btn btn-primary w-100" type="submit">Analyze CSV</button></div>
 </form>
 <div id="csvResearchNotice" class="lab-note mt-3" role="status">Ready to research. Choose “Try sample” or upload your historical CSV.</div>
-<section id="labReport" class="lab-hidden mt-4" aria-labelledby="labReportHeading">
+
+</section>
+<section id="labReport" class="card lab-card p-4 mb-3 lab-hidden" aria-labelledby="labReportHeading">
  <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
   <div><h3 id="labReportHeading" class="h5 fw-bold mb-1">Your historical research report</h3><div class="lab-secondary" id="reportFileName"></div></div>
-  <button class="btn btn-outline-primary btn-sm" id="downloadResearchReport" type="button">Download report (JSON)</button>
+  <div class="d-flex gap-2 flex-wrap"><button class="btn btn-outline-primary btn-sm" id="printResearchReport" type="button">Print report</button><button class="btn btn-outline-secondary btn-sm" id="downloadResearchReport" type="button">Download JSON</button></div>
  </div>
  <div id="labOverview" class="lab-summary mb-3" role="status"></div>
  <div class="row g-2 mb-3" id="labMetrics"></div>
  <h4 class="h6 fw-bold mb-2">Strategy observations</h4>
- <div id="csvResearchResults" class="row g-3" aria-live="polite"></div>
+ <div id="strategyResearchResults" class="row g-3" aria-live="polite"></div>
  <div class="lab-note mt-3">These are deterministic historical observations, <strong>not buy/sell signals</strong>. They are not added to the signal register or paper account. Prices, splits/dividends, exchange holidays, and data rights have not been independently verified.</div>
-</section>
 </section>
 <details id="labOptional" class="card lab-card p-4 mb-3" hidden><summary>Personal staging diagnostics <span class="lab-secondary fw-normal">· Maintainer only</span></summary>
 <div class="lab-note mb-3">The following interfaces are development foundations, not end-to-end broker trading features. FYERS individual-app login can be enabled only for an allowlisted staging account. Licensed quotes, automated signals and order simulation are not active in the Community preview.</div>
@@ -112,10 +119,11 @@
   <button type="button" class="btn btn-outline-primary" id="probeFyersData" disabled>Verify FYERS candles + quote</button>
   <button type="button" class="btn btn-outline-danger" id="disconnectFyers" disabled>Disconnect locally</button>
  </div>
- <div id="fyersDataResult" class="small lab-note mt-3" role="status">Live FYERS historical candles and quotes have not been tested in this session.</div>
+ <div id="fyersDataResult" class="small lab-note mt-3" role="status">Optional diagnostic check has not been run on this page load. An analysis report can independently verify historical-data retrieval.</div>
  <p class="lab-secondary small mt-2 mb-0">The test requests one read-only INFY daily-candle sample and one quote. It does not store or redistribute market prices. Reauthorize if your daily FYERS token has expired.</p>
 </section>
-<div class="row g-3 mb-3">
+<details id="labLegacyDiagnostics" class="mt-3"><summary class="lab-secondary fw-semibold">Incomplete operator signals and paper-ledger internals</summary>
+<div class="row g-3 mb-3 mt-2">
 <div class="col-md-4"><div class="card p-3"><div class="subtle">Active / Watching</div><h2 id="activeCount">—</h2></div></div>
 <div class="col-md-4"><div class="card p-3"><div class="subtle">Expired / Invalidated</div><h2 id="expiredCount">—</h2></div></div>
 <div class="col-md-4"><div class="card p-3"><div class="subtle">Paper cash</div><h2 id="paperCash">—</h2></div></div>
@@ -132,6 +140,7 @@
 <span class="subtle small" id="paperInitNotice">No orders or fills are simulated from CSV research.</span>
 </div><p class="subtle">No real orders are sent. The ledger is only populated by an authorised simulation worker using recorded market observations.</p>
 <table class="table table-sm"><thead><tr><th>Symbol</th><th>Quantity</th><th>Fill price</th><th>Time</th></tr></thead><tbody id="trades"><tr><td colspan="4">No trades loaded</td></tr></tbody></table></section>
+</details>
 </details>
 <footer class="lab-footer small lab-secondary mt-4">
  <strong>Research limitations:</strong> These observations describe completed historical candles, not buy/sell signals, forecasts or investment advice. Data provenance, corporate-action adjustment, exchange holidays and feed permissions must be verified by the data owner. No live orders are available.
@@ -169,6 +178,9 @@ async function refresh(){
  }catch(e){notice.className='alert alert-warning';notice.textContent=e.message;}
 }
 let lastReport=null;
+document.querySelector('#printResearchReport').addEventListener('click',()=>{
+ if(lastReport)window.print();
+});
 document.querySelector('#downloadResearchReport').addEventListener('click',()=>{
  if(!lastReport)return;
  const text=JSON.stringify(lastReport,null,2);
@@ -197,7 +209,7 @@ document.querySelector('#runDemoResearch').addEventListener('click',async()=>{
 async function analyzeHistoricalFile(file){
  const notice=document.querySelector('#csvResearchNotice');
  const button=document.querySelector('#runCsvResearch');
- const panel=document.querySelector('#csvResearchResults');
+ const panel=document.querySelector('#strategyResearchResults');
  panel.replaceChildren();
  document.querySelector('#labReport').classList.add('lab-hidden');
  lastReport=null;
@@ -217,7 +229,7 @@ async function analyzeHistoricalFile(file){
  finally{button.disabled=false;}
 }
 function renderResearchReport(data,notice,sourceMeta){
- const panel=document.querySelector('#csvResearchResults');panel.replaceChildren();
+ const panel=document.querySelector('#strategyResearchResults');panel.replaceChildren();
  if(!data||!data.rows||!data.strategies){
    document.querySelector('#labReport').classList.add('lab-hidden');
    notice.textContent='Not enough completed historical data for this report.';
@@ -252,9 +264,9 @@ function renderResearchReport(data,notice,sourceMeta){
    if(sourceMeta.provider==='fyers'){
      const quote=document.createElement('div');quote.className='lab-note mt-3';
      if(data.quote_status==='SNAPSHOT_RECEIVED'&&data.quote){
-       quote.textContent='FYERS quote snapshot: ₹'+Number(data.quote.last_price).toFixed(2)+
+       quote.textContent='FYERS quote API snapshot (exchange timestamp unverified): ₹'+Number(data.quote.last_price).toFixed(2)+
         ' · API received '+date(data.quote.received_at)+
-        '. This is the server receipt time, NOT a verified exchange trade time. No streaming or order execution.';
+        '. Server receipt time only, NOT a verified exchange trade time or streaming live quote. No orders.';
      }else{
        quote.textContent='Current quote unavailable. Historical research remains valid; last close is not a current price.';
      }
@@ -263,7 +275,7 @@ function renderResearchReport(data,notice,sourceMeta){
 
    const synthetic=sourceMeta.synthetic;
    const sampleWarning=sourceMeta.provider==='fyers'?' FYERS data is unadjusted and exchange timestamps are not verified.':synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
-   notice.textContent='Historical research completed. Nothing stored.'+sampleWarning;
+   notice.textContent='Research report generated. Source and limitations shown below.'+sampleWarning;
    document.querySelector('#reportFileName').textContent=(sourceMeta.provider==='fyers'?'Broker instrument: ':'Data source: ')+sourceMeta.label+' · '+data.rows+' historical daily candles'+(synthetic?' · SYNTHETIC SAMPLE':'')+(sourceMeta.provider==='fyers'?' · PERSONAL USE ONLY':'');
    const metrics=document.querySelector('#labMetrics');metrics.replaceChildren();
    for(const [heading,value] of [
@@ -332,6 +344,7 @@ document.querySelector('#initializePaperAccount').addEventListener('click',async
 
 document.querySelector('#refresh').addEventListener('click',refresh);
 document.querySelector('#includeHistory').addEventListener('change',refresh);
+document.querySelector('#labLegacyDiagnostics').addEventListener('toggle',event=>{if(event.target.open)refresh();});
 
 let fyersTestAvailable=false;
 async function refreshFyersConnection(){
@@ -370,11 +383,13 @@ async function refreshFyersConnection(){
   dataButton.disabled=!connected;
   disconnect.disabled=records.length===0;
   label.textContent=connected?
-   'FYERS token encrypted and stored, but market-data permissions have not been checked. Use Test read-only profile.':
+   'FYERS connection stored. Historical data access is checked when you run research; use diagnostics only if troubleshooting.':
    expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
    'FYERS staging login is available. Select Connect FYERS to authenticate on the official FYERS page.';
  }catch(e){
   label.textContent='FYERS connection status unavailable. '+e.message;
+ document.querySelector('#liveBrokerResearch').hidden=true;
+ document.querySelector('#runFyersResearch').disabled=true;
  }
 }
 document.querySelector('#connectFyers').addEventListener('click',async()=>{
@@ -430,7 +445,7 @@ document.querySelector('#probeFyersProfile').addEventListener('click',async()=>{
   });
   if(!r.ok)throw Error('Profile verification failed (HTTP '+r.status+')');
   const data=await r.json();
-  label.textContent=data.authenticated?'FYERS read-only profile authenticated. Historical and quote entitlements remain unverified.':
+  label.textContent=data.authenticated?'FYERS read-only profile authenticated. Run historical research to verify instrument-specific data access; subscription rights are not certified.':
    'Profile could not be authenticated.';
  }catch(e){label.textContent=e.message;}
  finally{b.disabled=false;}
@@ -472,5 +487,5 @@ if(window.location.hash==='#fyersConnectionPanel'){
  // Do not display the owner-only section until the backend confirms eligibility.
 }
 refreshFyersConnection();
-refresh();
+if(!token){notice.textContent="Please sign in on the portfolio dashboard to use Research Lab.";}else{notice.textContent="Signed in · Choose FYERS research (if authorized) or analyze a historical CSV.";}
 </script></body></html>
