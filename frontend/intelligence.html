@@ -175,9 +175,25 @@ document.querySelector('#downloadResearchReport').addEventListener('click',()=>{
  const url=URL.createObjectURL(file);
  const a=document.createElement('a');a.href=url;a.download='finreview-historical-research.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 });
-document.querySelector('#researchCsvForm').addEventListener('submit',async event=>{
+document.querySelector('#researchCsvForm').addEventListener('submit',event=>{
  event.preventDefault();
  const file=document.querySelector('#researchCsvInput').files[0];
+ analyzeHistoricalFile(file);
+});
+document.querySelector('#runDemoResearch').addEventListener('click',async()=>{
+ const btn=document.querySelector('#runDemoResearch');
+ const notice=document.querySelector('#csvResearchNotice');
+ btn.disabled=true;
+ try{
+  const r=await fetch('./data/research-sample-synthetic.csv',{cache:'no-store'});
+  if(!r.ok)throw Error('Sample file unavailable');
+  const buffer=await r.arrayBuffer();
+  const file=new File([buffer],'finreview-synthetic-demo.csv',{type:'text/csv'});
+  await analyzeHistoricalFile(file);
+ }catch(e){notice.textContent='Unable to open demonstration: '+e.message;}
+ finally{btn.disabled=false;}
+});
+async function analyzeHistoricalFile(file){
  const notice=document.querySelector('#csvResearchNotice');
  const button=document.querySelector('#runCsvResearch');
  const panel=document.querySelector('#csvResearchResults');
@@ -197,6 +213,30 @@ document.querySelector('#researchCsvForm').addEventListener('submit',async event
    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
    lastReport=data;
    document.querySelector('#labReport').classList.remove('lab-hidden');
+   const overview=document.querySelector('#labOverview');
+   overview.replaceChildren();
+   const heading=document.createElement('h3');
+   heading.textContent='Analysis at a glance';
+   overview.appendChild(heading);
+   const breakout=data.strategies?.breakout?.observation;
+   const trend=data.strategies?.sma_trend?.observation;
+   const summary=document.createElement('p');summary.className='mb-2';
+   const breakoutText=breakout===null||breakout===undefined?'not enough history for a 20-bar breakout check':
+     breakout.state==='CANDIDATE'?'the latest completed close exceeded the previous 20-bar high':
+     'the latest completed close did not exceed the previous 20-bar high';
+   const trendText=trend===null||trend===undefined?'not enough history for a 20/50-day trend check':
+     trend.state==='CANDIDATE'?'the 20-day average is above the 50-day average':
+     'the 20-day average is not above the 50-day average';
+   summary.textContent='Based on '+data.rows+' historical candles, '+breakoutText+'; '+trendText+'. These conditions describe past prices, not what happens next.';
+   overview.appendChild(summary);
+   const asof=new Date(data.last_timestamp);
+   const ageDays=Number.isNaN(asof.getTime())?null:Math.floor((Date.now()-asof.getTime())/86400000);
+   const quality=document.createElement('div');quality.className='lab-secondary small';
+   quality.textContent='Source: '+(file.name.toLowerCase().includes('synthetic')?'Synthetic demonstration (not tradable prices)':'User-supplied CSV (independently unverified)')+
+     ' · Last candle: '+date(data.last_timestamp)+
+     (ageDays!==null&&ageDays>7?' · Historical data is over 7 days old.':'')+
+     ' · No market-data rights or corporate-action adjustments certified.';
+   overview.appendChild(quality);
    const synthetic=file.name.toLowerCase().includes('synthetic');
    const sampleWarning=synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
    notice.textContent='Historical analysis completed. Nothing was saved.'+sampleWarning;
@@ -251,7 +291,7 @@ document.querySelector('#researchCsvForm').addEventListener('submit',async event
    }
  }catch(err){notice.textContent='Unable to analyze: '+err.message;}
  finally{button.disabled=false;}
-});
+}
 document.querySelector('#initializePaperAccount').addEventListener('click',async()=>{
  const notice=document.querySelector('#paperInitNotice');
  if(!token){notice.textContent='Sign in first.';return;}
@@ -284,12 +324,18 @@ async function refreshFyersConnection(){
    api('/v2/market/fyers/test-availability'),api('/v2/market/connections')
   ]);
   fyersTestAvailable=Boolean(cap.available);
+  // Diagnostics are visible only to the staging account allowlisted by the backend.
+  const diagnostics=document.querySelector('#labOptional');
+  diagnostics.hidden=!fyersTestAvailable;
   const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
   const connected=records.some(item=>item.state==='STORED_UNVERIFIED');
   const expired=records.length>0&&!connected;
   if(!fyersTestAvailable){
-   label.textContent='FYERS login is disabled for this account. The operator must enable the allowlisted personal staging user.';
+   label.textContent='Personal staging diagnostics unavailable for this account.';
    return;
+  }
+  if(window.location.hash==='#fyersConnectionPanel'){
+   document.querySelector('#fyersConnectionPanel').scrollIntoView({block:'start'});
   }
   connect.disabled=false;
   probe.disabled=!connected;
@@ -393,7 +439,7 @@ document.querySelector('#providerForm').addEventListener('submit',async event=>{
 // Open the FYERS tools when returning from the fixed OAuth callback.
 if(window.location.hash==='#fyersConnectionPanel'){
  document.querySelector('#labOptional').open=true;
- document.querySelector('#fyersConnectionPanel').scrollIntoView({block:'start'});
+ // Do not display the owner-only section until the backend confirms eligibility.
 }
 loadProviderPreference();
 refreshFyersConnection();
