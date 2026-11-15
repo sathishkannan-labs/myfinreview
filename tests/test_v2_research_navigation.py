@@ -104,7 +104,7 @@ def test_nonfunctional_broker_preferences_removed_from_research_ui():
     assert 'id="runFyersResearch"' in RESEARCH
     assert "renderResearchReport(data,notice" in RESEARCH
     assert 'id="fyersResearchSymbol"' in RESEARCH
-    assert "FYERS quote snapshot" in RESEARCH
+    assert "FYERS quote API snapshot" in RESEARCH
     assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
 
 
