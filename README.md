@@ -2,7 +2,7 @@
 
 > **Release status (15 November 2026):** `v2.0.0` is the published Foundation Preview. `release/2.0.1` is a **staging release candidate, not a stable release**. The existing public Community demo remains on v1; do not confuse it with the separate testing deployment.
 >
-> **What's genuinely available in 2.0.1 staging:** The original portfolio dashboard plus authenticated CSV historical research with SMA and breakout observations, an exportable JSON report, and optional per-user broker preference settings. A personal FYERS **non-trading** app owner can test OAuth, an account-scoped read-only profile, and separately gated history/quote smoke checks.
+> **What's genuinely available in 2.0.1 staging:** The original portfolio dashboard plus authenticated CSV historical research with SMA and breakout observations, an exportable JSON report, and optional per-user broker preference settings. A personal FYERS **non-trading** app owner can test OAuth, an account-scoped read-only profile, and owner-allowlisted read-only history/quote smoke checks, with one successful real FYERS sample observed on 15 November 2026.
 >
 > **Not publicly supported:** FYERS/Upstox/Zerodha shared live broker login, trading or real orders, automated signals from live prices, completed paper-trade P&L, scheduled hosted digests or redistribution of broker quotes. The optional broker adapters are technical foundations and may require third-party subscriptions or provider authorization. Community users are not required to open a broker account.
 
@@ -33,14 +33,14 @@ The release candidate extends v1 with transparent, deterministic historical rese
 | Historical research results and JSON export | Available |
 | Per-user market-data preferences | Available; **not** an actual broker connection |
 | FYERS individual-app OAuth and read-only profile | Private owner-allowlisted staging test only |
-| FYERS daily history and quote samples | Owner-only staging smoke test; live entitlement acceptance pending |
+| FYERS daily history and quote samples | **Personal staging sample passed (15 Nov 2026):** authenticated profile, 5 daily bars (8–14 Nov), one quote sample. Data quality and redistribution rights unverified. |
 | Upstox and Zerodha provider adapters | Experimental; not certified for hosted live usage |
 | Signal register / paper-account foundations | Experimental; not a complete simulated trading workflow |
 | Real-money order placement | Not implemented or permitted |
 
 **Try the [isolated v2.0.1 staging Research Lab](https://finreview-v201-staging-ui.onrender.com/intelligence.html).** It is intended for testing, not financial advice or public broker credentials. Only the original project maintainer's FYERS non-trading individual app is eligible for the private connectivity test. No third-party users receive that app's market data.
 
-**Release gate:** A green CI build is necessary but insufficient. Read [v2.0.1 readiness evidence](docs/releases/v2.0.1-live-test-readiness.md) for remaining live broker-data, account-isolation, migration/rollback, licensing and acceptance checks. Until these pass, there is no stable `v2.0.1` tag.
+**Release gate:** A green CI build is necessary but insufficient. Read [v2.0.1 readiness evidence](docs/releases/v2.0.1-live-test-readiness.md) for remaining account-isolation, migration/rollback, licensing, broker-backed research and acceptance checks. Until these pass, there is no stable `v2.0.1` tag.
 
 ---
 
