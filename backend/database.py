@@ -56,12 +56,30 @@ def init_db():
     from intelligence.provider_preferences import BrokerPreference
     from intelligence.credential_vault import BrokerConnection
     from intelligence.broker_oauth import BrokerAuthAttempt
-    inspector = inspect(engine)
-    if not inspector.has_table("user"):
-        logger.info("Tables not found. Creating database schema.")
-        SQLModel.metadata.create_all(engine)
-    else:
-        logger.info("Database already initialized. Preserving existing schema.")
-    # Additive v2 tables only; do not modify or delete any existing portfolio data.
-    v2_tables = [StrategySignal.__table__, SignalEvent.__table__, PaperAccount.__table__, PaperTrade.__table__, NotificationDelivery.__table__, CachedCandle.__table__, BrokerPreference.__table__, BrokerConnection.__table__, BrokerAuthAttempt.__table__]
-    SQLModel.metadata.create_all(engine, tables=v2_tables, checkfirst=True)
+    v2_tables = [
+        model.__table__ for model in (
+            StrategySignal, SignalEvent, PaperAccount, PaperTrade, NotificationDelivery,
+            CachedCandle, BrokerPreference, BrokerConnection, BrokerAuthAttempt,
+        )
+    ]
+    with engine.begin() as connection:
+        if not inspect(connection).has_table("user"):
+            logger.info("Tables not found. Creating database schema.")
+            SQLModel.metadata.create_all(connection)
+        else:
+            logger.info("Database already initialized. Preserving existing schema.")
+            SQLModel.metadata.create_all(connection, tables=v2_tables, checkfirst=True)
+        if connection.dialect.name == "postgresql":
+            # Apply protection in the same transaction as creation so default
+            # Data API grants cannot expose the new tables during startup.
+            from sqlalchemy import text
+
+            roles = connection.execute(text(
+                "SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')"
+            )).scalars().all()
+            preparer = connection.dialect.identifier_preparer
+            for table in v2_tables:
+                name = preparer.format_table(table)
+                connection.execute(text(f"ALTER TABLE {name} ENABLE ROW LEVEL SECURITY"))
+                for role in roles:
+                    connection.execute(text(f"REVOKE ALL PRIVILEGES ON TABLE {name} FROM {preparer.quote(role)}"))
