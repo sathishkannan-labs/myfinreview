@@ -312,6 +312,34 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
         return page("Authorization was unsuccessful or expired. Return to Research Lab and try again.")
 
 
+@router.get("/market/fyers/research")
+async def fyers_personal_research(
+    instrument: Literal["NSE:INFY-EQ","NSE:RELIANCE-EQ","NSE:HDFCBANK-EQ"],
+    user: User = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    """Owner-only personal broker research; no shared app or trading access."""
+    import os
+    from fastapi.responses import JSONResponse
+    from .broker_research import research_from_fyers
+    from .market_data import MarketDataError
+    if (not _fyers_staging_owner(user.id) or
+        os.getenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","false").lower()!="true"):
+        raise HTTPException(403, "Personal broker research unavailable")
+    try:
+        data=await research_from_fyers(session,user.id,instrument)
+        return JSONResponse(data,headers={"Cache-Control":"no-store, private",
+                                           "Pragma":"no-cache",
+                                           "Referrer-Policy":"no-referrer"})
+    except ValueError:
+        raise HTTPException(409,"Your FYERS session is unavailable or expired. Reconnect and retry.")
+    except MarketDataError:
+        raise HTTPException(422,"FYERS returned invalid or unsupported historical data.")
+    except Exception:
+        # Never reflect upstream URLs, account credentials, auth tokens or data.
+        raise HTTPException(503,"FYERS research data temporarily unavailable")
+
+
 @router.post("/market/fyers/test-data")
 async def fyers_test_market_data(user: User = Depends(current_user),
                                  session: Session = Depends(get_session)):
