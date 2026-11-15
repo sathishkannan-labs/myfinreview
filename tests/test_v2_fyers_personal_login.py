@@ -174,6 +174,7 @@ def test_third_party_requires_approval_and_complete_configuration(db, monkeypatc
     monkeypatch.setenv("FINREVIEW_ENV", "production")
     monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
     monkeypatch.delenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", raising=False)
+    monkeypatch.delenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", raising=False)
     assert not fyers_session.enabled()
     assert not fyers_session.configuration_ready()
     assert not fyers_test_availability(user=SimpleNamespace(id=2))["available"]
@@ -196,3 +197,16 @@ def test_third_party_requires_approval_and_complete_configuration(db, monkeypatc
     monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "false")
     assert not fyers_session.enabled()
     assert not fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+
+
+def test_third_party_readiness_rejects_callback_without_hostname(db, monkeypatch):
+    from intelligence import fyers_session
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://")
+    assert not fyers_session.configuration_ready()
+
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org/v2/market/oauth/fyers/callback")
+    assert fyers_session.configuration_ready()
