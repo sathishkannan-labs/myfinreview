@@ -96,3 +96,41 @@ async def test_route_no_store_and_scrubbed_failure(monkeypatch):
         await fyers_personal_research("NSE:INFY-EQ",user=SimpleNamespace(id=1),session=None)
     assert err.value.status_code==503
     assert "SECRET_BROKER" not in err.value.detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,payload,expected", [
+    (401, {}, 409),
+    (200, {"s": "error", "code": -16}, 409),
+    (403, {}, 503),
+    (503, {}, 503),
+    (None, {}, 502),
+])
+async def test_fyers_research_distinguishes_provider_failures(monkeypatch, status, payload, expected):
+    import httpx
+    from intelligence import broker_research
+    from intelligence.fyers_data import FyersReadOnlyData
+
+    monkeypatch.setenv("FINREVIEW_ENV", "staging")
+    monkeypatch.setenv("FINREVIEW_V2_OAUTH_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_TEST_USER_ID", "7")
+    monkeypatch.setenv("FINREVIEW_V2_BROKER_PROBES_ENABLED", "true")
+
+    async def valid(symbol):
+        return symbol == "NSE:INFY-EQ"
+
+    def response(request):
+        if status is None:
+            raise httpx.ConnectError("private upstream information", request=request)
+        return httpx.Response(status, json={**payload, "message": "private upstream information"})
+
+    monkeypatch.setattr(broker_research, "is_current_equity", valid)
+    monkeypatch.setattr(broker_research, "read_trusted", lambda *args: {})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
+        adapter = FyersReadOnlyData("test-app", "test-token", client)
+        monkeypatch.setattr(broker_research, "make_client", lambda *args, **kwargs: adapter)
+        with pytest.raises(HTTPException) as exc:
+            await fyers_personal_research("NSE:INFY-EQ", SimpleNamespace(id=7), object())
+    assert exc.value.status_code == expected
+    assert "private upstream information" not in exc.value.detail
+    assert ("Reconnect" in exc.value.detail) == (expected == 409)

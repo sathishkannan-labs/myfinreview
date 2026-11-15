@@ -68,14 +68,14 @@ def test_private_fyers_connect_is_not_open_to_other_brokers():
 def test_community_research_has_complete_no_broker_path():
     assert 'id="runDemoResearch"' in RESEARCH
     assert 'id="researchCsvInput"' in RESEARCH
-    assert "async function analyzeHistoricalFile(file)" in RESEARCH
+    assert "async function analyzeHistoricalFile(file,synthetic=false)" in RESEARCH
     assert "analyzeHistoricalFile(file);" in RESEARCH
     assert "data.strategies?.breakout?.observation" in RESEARCH
     assert "data.strategies?.sma_trend?.observation" in RESEARCH
     assert "id=\"labOverview\"" in RESEARCH
     assert "Historical data is over 7 days old" in RESEARCH
     assert 'id="downloadResearchReport"' in RESEARCH
-    assert "lastReport=data" in RESEARCH
+    assert "lastReport=makeExportReport(data,sourceMeta)" in RESEARCH
 
 
 def test_developer_diagnostics_not_in_community_view_by_default():
@@ -137,3 +137,53 @@ def test_diagnostics_not_misleading_after_authenticated_fyers_research():
     assert "event.target.open)refresh()" in RESEARCH
     assert "refreshFyersConnection();\\nrefresh();" not in RESEARCH
     assert "Server receipt time only" in RESEARCH
+
+
+def test_export_provenance_and_research_button_behavior():
+    import shutil
+    import subprocess
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js unavailable")
+    export = RESEARCH.split("function makeExportReport", 1)[1].split("function renderResearchReport", 1)[0]
+    gate = RESEARCH.split("function updateFyersResearchButton", 1)[1].split("function setFyersSessionDeadline", 1)[0]
+    code = "function makeExportReport" + export + "function updateFyersResearchButton" + gate + """
+const assert=require('node:assert/strict');
+const raw={source:'USER_UPLOADED_CSV',first_timestamp:'start',last_timestamp:'end',
+           adjustment:'UNVERIFIED',exchange_calendar:'NOT_VERIFIED',last_close:42};
+const sample=makeExportReport(raw,{label:'demo.csv',synthetic:true,provider:'csv'});
+assert.equal(sample.provenance.provider,'FINREVIEW_SYNTHETIC_SAMPLE');
+assert.equal(sample.provenance.synthetic,true);
+assert.equal(sample.provenance.filename,'demo.csv');
+assert.deepEqual(sample.provenance.observation_period,{start:'start',end:'end'});
+assert.ok(Number.isFinite(Date.parse(sample.provenance.generated_at)));
+assert.equal(sample.provenance.limitations.adjustment,'UNVERIFIED');
+assert.equal(sample.last_close,42);
+assert.equal(raw.provenance,undefined);
+const upload=makeExportReport(raw,{label:'synthetic-named-upload.csv',synthetic:false,provider:'csv'});
+assert.equal(upload.provenance.synthetic,false);
+const broker=makeExportReport({...raw,data_rights:'PERSONAL_ONLY_NOT_FOR_REDISTRIBUTION'},
+                              {label:'NSE:INFY-EQ',synthetic:false,provider:'fyers'});
+assert.equal(broker.provenance.instrument,'NSE:INFY-EQ');
+assert.equal(broker.provenance.filename,null);
+assert.equal(broker.provenance.limitations.data_rights,'PERSONAL_ONLY_NOT_FOR_REDISTRIBUTION');
+let fyersTestAvailable=true, fyersSessionDeadline=0, fyersResearchPending=false;
+const fyersSelected={value:'NSE:INFY-EQ'}, button={};
+const document={querySelector:()=>button};
+updateFyersResearchButton();
+assert.equal(button.disabled,true);
+fyersSessionDeadline=Date.now()+60000;
+updateFyersResearchButton();
+assert.equal(button.disabled,false);
+fyersSelected.value='';
+updateFyersResearchButton();
+assert.equal(button.disabled,true);
+fyersSelected.value='NSE:INFY-EQ';
+fyersResearchPending=true;
+updateFyersResearchButton();
+assert.equal(button.disabled,true);
+"""
+    result = subprocess.run([node, "-e", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr

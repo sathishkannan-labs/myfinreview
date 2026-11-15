@@ -4,12 +4,15 @@ Access is opt-in. Your FYERS data licence, session and non-trading app permissio
 must be confirmed before enabling this provider.
 """
 import os
-from datetime import datetime, timezone
 import httpx
 
 FYERS_BASE = "https://api-t1.fyers.in"
 class FyersDataError(RuntimeError):
     pass
+
+class FyersAuthenticationError(FyersDataError):
+    pass
+
 
 class FyersReadOnlyData:
     def __init__(self, client_id=None, access_token=None, http_client=None):
@@ -25,10 +28,18 @@ class FyersReadOnlyData:
         else:
             async with httpx.AsyncClient(timeout=12) as client:
                 response = await client.get(FYERS_BASE+path, params=params, headers=headers)
+        if response.status_code == 401:
+            raise FyersAuthenticationError("FYERS authentication rejected")
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
+        # FYERS can return a token error in an otherwise successful HTTP response.
+        if isinstance(data, dict) and data.get("s") != "ok" and data.get("code") in (-8, -15, -16, -17):
+            raise FyersAuthenticationError("FYERS authentication rejected")
         response.raise_for_status()
-        data = response.json()
         if not isinstance(data, dict) or data.get("s") != "ok":
-            raise FyersDataError("FYERS quote/history request failed or authentication expired")
+            raise FyersDataError("FYERS market data unavailable")
         return data
     async def quotes(self, symbols: list[str]) -> dict:
         if not symbols or len(symbols) > 50:

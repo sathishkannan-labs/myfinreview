@@ -44,16 +44,24 @@ def _scope(user_id, provider, purpose):
         raise ValueError("Invalid broker connection scope")
 
 
+def _utc_expiry(expiry):
+    if expiry is None:
+        return None
+    return expiry.replace(tzinfo=timezone.utc) if expiry.tzinfo is None else expiry.astimezone(timezone.utc)
+
+
 def status(session: Session, user_id: int):
     """Return safe metadata only, never encrypted blobs or token suffixes."""
     rows = session.exec(select(BrokerConnection).where(
         BrokerConnection.user_id == user_id)).all()
     now = datetime.now(timezone.utc)
-    return {"connections": [{"provider": row.provider, "purpose": row.purpose,
-                            "state": ("EXPIRED" if row.expires_at is not None and
-                                      (row.expires_at.replace(tzinfo=timezone.utc) if row.expires_at.tzinfo is None else row.expires_at.astimezone(timezone.utc)) <= now
-                                      else "STORED_UNVERIFIED")}
-                           for row in rows],
+    connections = []
+    for row in rows:
+        expiry = _utc_expiry(row.expires_at)
+        connections.append({"provider": row.provider, "purpose": row.purpose,
+                            "state": "EXPIRED" if expiry and expiry <= now else "STORED_UNVERIFIED",
+                            "expires_at": expiry.isoformat() if expiry else None})
+    return {"connections": connections,
             "oauth_configured": False, "live_validation": "NOT_PERFORMED"}
 
 
@@ -96,10 +104,7 @@ def read_trusted(session: Session, user_id: int, provider: str, purpose: str):
     if row is None:
         raise ValueError("Broker connection not configured")
     if row.expires_at is not None:
-        expiry = row.expires_at
-        if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=timezone.utc)  # SQLite round-trip
-        if expiry.astimezone(timezone.utc) <= datetime.now(timezone.utc):
+        if _utc_expiry(row.expires_at) <= datetime.now(timezone.utc):
             raise ValueError("Broker session expired")
     try:
         data = json.loads(_cipher().decrypt(row.encrypted_credentials.encode("ascii")))

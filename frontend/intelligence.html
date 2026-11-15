@@ -218,11 +218,11 @@ document.querySelector('#runDemoResearch').addEventListener('click',async()=>{
   if(!r.ok)throw Error('Sample file unavailable');
   const buffer=await r.arrayBuffer();
   const file=new File([buffer],'finreview-synthetic-demo.csv',{type:'text/csv'});
-  await analyzeHistoricalFile(file);
+  await analyzeHistoricalFile(file,true);
  }catch(e){notice.textContent='Unable to open demonstration: '+e.message;}
  finally{btn.disabled=false;}
 });
-async function analyzeHistoricalFile(file){
+async function analyzeHistoricalFile(file,synthetic=false){
  const notice=document.querySelector('#csvResearchNotice');
  const button=document.querySelector('#runCsvResearch');
  const panel=document.querySelector('#strategyResearchResults');
@@ -240,10 +240,28 @@ async function analyzeHistoricalFile(file){
    });
    const data=await response.json();
    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
-   renderResearchReport(data,notice,{label:file.name,synthetic:file.name.toLowerCase().includes('synthetic'),provider:'csv'});
+   renderResearchReport(data,notice,{label:file.name,synthetic,provider:'csv'});
    document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(err){notice.textContent='Unable to analyze: '+err.message;}
  finally{button.disabled=false;}
+}
+function makeExportReport(data,sourceMeta){
+ const broker=sourceMeta.provider==='fyers';
+ return {...data,provenance:{
+   provider:broker?'FYERS':sourceMeta.synthetic?'FINREVIEW_SYNTHETIC_SAMPLE':'USER_UPLOADED_CSV',
+   filename:broker?null:sourceMeta.label,
+   instrument:broker?sourceMeta.label:null,
+   synthetic:sourceMeta.synthetic,
+   generated_at:new Date().toISOString(),
+   observation_period:{start:data.first_timestamp,end:data.last_timestamp},
+   limitations:{
+     adjustment:data.adjustment,
+     exchange_calendar:data.exchange_calendar,
+     source_accuracy:sourceMeta.synthetic?'SYNTHETIC':broker?'PROVIDER_REPORTED':'INDEPENDENTLY_UNVERIFIED',
+     exchange_timestamp_verified:data.exchange_timestamp_verified??false,
+     data_rights:data.data_rights??'NOT_VERIFIED'
+   }
+ }};
 }
 function renderResearchReport(data,notice,sourceMeta){
  const panel=document.querySelector('#strategyResearchResults');panel.replaceChildren();
@@ -252,7 +270,7 @@ function renderResearchReport(data,notice,sourceMeta){
    notice.textContent='Not enough completed historical data for this report.';
    return;
  }
-   lastReport=data;
+   lastReport=makeExportReport(data,sourceMeta);
    document.querySelector('#labReport').classList.remove('lab-hidden');
    const overview=document.querySelector('#labOverview');
    overview.replaceChildren();
@@ -364,6 +382,22 @@ document.querySelector('#includeHistory').addEventListener('change',refresh);
 document.querySelector('#labLegacyDiagnostics').addEventListener('toggle',event=>{if(event.target.open)refresh();});
 
 let fyersTestAvailable=false;
+let fyersSessionDeadline=0;
+let fyersSessionTimer;
+let fyersResearchPending=false;
+let rejectedFyersDeadline=null;
+function updateFyersResearchButton(){
+ document.querySelector('#runFyersResearch').disabled=
+   !fyersTestAvailable||Date.now()>=fyersSessionDeadline||!fyersSelected.value||fyersResearchPending;
+}
+function setFyersSessionDeadline(deadline){
+ fyersSessionDeadline=deadline;
+ clearTimeout(fyersSessionTimer);
+ updateFyersResearchButton();
+ if(deadline>Date.now()&&Number.isFinite(deadline)){
+  fyersSessionTimer=setTimeout(updateFyersResearchButton,deadline-Date.now());
+ }
+}
 async function refreshFyersConnection(){
  const label=document.querySelector('#fyersConnectStatus');
  const connect=document.querySelector('#connectFyers');
@@ -371,6 +405,7 @@ async function refreshFyersConnection(){
  const dataButton=document.querySelector('#probeFyersData');
  const disconnect=document.querySelector('#disconnectFyers');
  connect.disabled=true;probe.disabled=true;dataButton.disabled=true;disconnect.disabled=true;
+ setFyersSessionDeadline(0);
  if(!token){label.textContent='Log in to your FinReview staging account first.';return;}
  try{
   const [cap,stat]=await Promise.all([
@@ -381,9 +416,11 @@ async function refreshFyersConnection(){
   const diagnostics=document.querySelector('#labOptional');
   diagnostics.hidden=!fyersTestAvailable;
   const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
-  const connected=records.some(item=>item.state==='STORED_UNVERIFIED');
+  const required=['historical','quotes'].map(purpose=>records.find(item=>item.purpose===purpose&&item.state==='STORED_UNVERIFIED'));
+  const deadline=required.every(Boolean)?Math.min(...required.map(item=>item.expires_at?Date.parse(item.expires_at):Infinity)):0;
+  const connected=deadline>Date.now()&&deadline!==rejectedFyersDeadline;
+  setFyersSessionDeadline(connected?deadline:0);
   document.querySelector('#liveBrokerResearch').hidden=!fyersTestAvailable;
-  document.querySelector('#runFyersResearch').disabled=!fyersTestAvailable||!connected||!fyersSelected.value;
   document.querySelector('#fyersResearchStatus').textContent=connected?
     'FYERS connection available. Choose an equity to run historical research.':
     'FYERS session missing or expired. Reconnect from Personal staging diagnostics to use broker data.';
@@ -475,14 +512,14 @@ fyersInput.addEventListener('input',()=>{
      fyersInput.value=row.name+' ('+row.symbol+')';
      clearFyersSuggestions();
      fyersSearchStatus.textContent='Selected: '+row.symbol+' · FYERS NSE cash-market instrument';
-     document.querySelector('#runFyersResearch').disabled=false;
+     updateFyersResearchButton();
      fyersInput.focus();
     });
     fyersMatchList.appendChild(choice);
    }
    fyersMatchList.hidden=false;
    fyersInput.setAttribute('aria-expanded','true');
-   fyersSearchStatus.textContent=rows.length+' matching instruments. Select one from the list.';
+   fyersSearchStatus.textContent=rows.length+' matching instruments. Choose a matching equity from the list.';
   }catch(err){
    if(request===fyersSearchSeq)fyersSearchStatus.textContent=err.message;
   }
@@ -499,27 +536,32 @@ fyersMatchList.addEventListener('keydown',event=>{
  if(event.key==='Escape'){event.preventDefault();clearFyersSuggestions();fyersInput.focus();}
 });
 document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
- const button=document.querySelector('#runFyersResearch');
  const notice=document.querySelector('#fyersResearchStatus');
- if(!token||!fyersTestAvailable)return;
- button.disabled=true;
+ if(!token||!fyersTestAvailable||!fyersSelected.value||Date.now()>=fyersSessionDeadline||fyersResearchPending)return;
+ const requestedDeadline=fyersSessionDeadline;
+ fyersResearchPending=true;
+ updateFyersResearchButton();
  document.querySelector('#labReport').classList.add('lab-hidden');
  lastReport=null;
  notice.textContent='Fetching FYERS daily candles and quote with your encrypted broker session…';
  try{
   const symbol=fyersSelected.value;
-  if(!symbol){notice.textContent='Choose a matching equity from the FYERS search suggestions.';return;}
   const res=await fetch(CONFIG.API_URL+'/v2/market/fyers/research?instrument='+encodeURIComponent(symbol),{
    headers:{Authorization:'Bearer '+token},cache:'no-store'
   });
   const data=await res.json();
+  if(res.status===409){
+   rejectedFyersDeadline=requestedDeadline;
+   if(fyersSessionDeadline===requestedDeadline)setFyersSessionDeadline(0);
+   document.querySelector('#labOptional').open=true;
+  }
   if(!res.ok)throw Error(typeof data.detail==='string'?data.detail:'FYERS research unavailable (HTTP '+res.status+')');
   if(data.status==='NO_DATA')throw Error('FYERS returned no completed historical candles for this instrument.');
   renderResearchReport(data,notice,{label:symbol,provider:'fyers',synthetic:false});
   document.querySelector('#fyersDataResult').textContent='This session: FYERS returned '+data.rows+' completed historical daily candles for '+symbol+' and '+(data.quote_status==='SNAPSHOT_RECEIVED'?'one quote API snapshot.':'no quote snapshot.')+' Exchange time and redistribution rights remain unverified.';
   document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){notice.textContent='Unable to analyze FYERS data: '+e.message;}
- finally{button.disabled=false;}
+ finally{fyersResearchPending=false;updateFyersResearchButton();}
 });
 document.querySelector('#refreshFyersStatus').addEventListener('click',refreshFyersConnection);
 document.querySelector('#probeFyersProfile').addEventListener('click',async()=>{

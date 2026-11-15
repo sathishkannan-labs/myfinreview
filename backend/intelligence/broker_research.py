@@ -33,7 +33,11 @@ def _result(obs):
 async def research_from_fyers(session, user_id:int, instrument:str, *, now=None,
                               history_client=None, quote_client=None):
     """User-scoped, read-only, small response; provider timestamps unverified."""
-    if not await is_current_equity(instrument):
+    try:
+        valid_instrument = await is_current_equity(instrument)
+    except ValueError:
+        raise RuntimeError("FYERS instrument directory unavailable") from None
+    if not valid_instrument:
         raise MarketDataError("Choose a current NSE equity from the FYERS symbol list")
     now=now or datetime.now(timezone.utc)
     if now.tzinfo is None or now.utcoffset() is None:

@@ -343,6 +343,8 @@ async def fyers_personal_research(
 ):
     """Owner-only personal broker research; no shared app or trading access."""
     import os
+    import httpx
+    from .fyers_data import FyersAuthenticationError
     from fastapi.responses import JSONResponse
     from .broker_research import research_from_fyers
     from .market_data import MarketDataError
@@ -356,8 +358,10 @@ async def fyers_personal_research(
                                            "Referrer-Policy":"no-referrer"})
     except MarketDataError:
         raise HTTPException(422,"FYERS returned invalid or unsupported historical data.")
-    except ValueError:
-        raise HTTPException(409,"Your FYERS session is unavailable or expired. Reconnect and retry.")
+    except (FyersAuthenticationError, ValueError):
+        raise HTTPException(409,"Your FYERS session is unavailable or expired. Reconnect and retry.") from None
+    except httpx.RequestError:
+        raise HTTPException(502,"Unable to reach FYERS. Try again shortly.") from None
     except Exception:
         # Never reflect upstream URLs, account credentials, auth tokens or data.
         raise HTTPException(503,"FYERS research data temporarily unavailable")
