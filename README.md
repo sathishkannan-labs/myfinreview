@@ -1,9 +1,10 @@
 # FinReview
 
-> **Community Edition brokerage choice:** FYERS, Upstox and Zerodha are optional bring-your-own-account integrations on the `release/2.x` branch. Each user may separately select historical and quote providers; no brokerage account is mandatory. Zerodha historical/live market data requires paid Kite Connect; secure per-user OAuth credentials are not yet supported.
-
-> **FinReview 2.x development branch:** Experimental BYO market-data adapters (Upstox Analytics Token, FYERS Standard), historical CSV validation and read-only research endpoints are available on `release/2.x`. These adapters are not yet live-verified and `v2.0.0` is not released. See [FinReview 2.x Market Data Setup](docs/V2_MARKET_DATA.md) and [Release Readiness](docs/V2_RELEASE_PLAN.md). This repository's existing live demo remains on the current Community Edition.
-
+> **Release status (15 November 2026):** `v2.0.0` is the published Foundation Preview. `release/2.0.1` is a **staging release candidate, not a stable release**. The existing public Community demo remains on v1; do not confuse it with the separate testing deployment.
+>
+> **What's genuinely available in 2.0.1 staging:** The original portfolio dashboard plus authenticated CSV historical research with SMA and breakout observations, an exportable JSON report, and optional per-user broker preference settings. A personal FYERS **non-trading** app owner can test OAuth, an account-scoped read-only profile, and separately gated history/quote smoke checks.
+>
+> **Not publicly supported:** FYERS/Upstox/Zerodha shared live broker login, trading or real orders, automated signals from live prices, completed paper-trade P&L, scheduled hosted digests or redistribution of broker quotes. The optional broker adapters are technical foundations and may require third-party subscriptions or provider authorization. Community users are not required to open a broker account.
 
 > **AI-Assisted Portfolio Intelligence Platform for Indian Investors**
 
@@ -17,6 +18,29 @@ FinReview is an open-source **Community Edition** portfolio intelligence platfor
 Unlike traditional portfolio trackers that primarily record transactions, FinReview focuses on helping investors understand **what their portfolio is doing** through deterministic financial analytics complemented by AI-assisted portfolio briefings.
 
 This project is published as a **software engineering showcase**, demonstrating backend engineering, solution architecture, REST API design, financial domain modelling, and AI integration.
+
+---
+
+# 🧪 v2.0.1 Community Edition — Release Candidate
+
+The release candidate extends v1 with transparent, deterministic historical research without forcing users to connect a broker.
+
+| User-facing capability | Current release-candidate status |
+| --- | --- |
+| Existing portfolio, analytics and news | Retained; final staging regression acceptance pending |
+| Research Lab historical CSV upload | Available — user data processed without storage |
+| SMA (20/50), 20-bar breakout and ATR context | Available on validated daily OHLCV, historical only |
+| Historical research results and JSON export | Available |
+| Per-user market-data preferences | Available; **not** an actual broker connection |
+| FYERS individual-app OAuth and read-only profile | Private owner-allowlisted staging test only |
+| FYERS daily history and quote samples | Owner-only staging smoke test; live entitlement acceptance pending |
+| Upstox and Zerodha provider adapters | Experimental; not certified for hosted live usage |
+| Signal register / paper-account foundations | Experimental; not a complete simulated trading workflow |
+| Real-money order placement | Not implemented or permitted |
+
+**Try the [isolated v2.0.1 staging Research Lab](https://finreview-v201-staging-ui.onrender.com/intelligence.html).** It is intended for testing, not financial advice or public broker credentials. Only the original project maintainer's FYERS non-trading individual app is eligible for the private connectivity test. No third-party users receive that app's market data.
+
+**Release gate:** A green CI build is necessary but insufficient. Read [v2.0.1 readiness evidence](docs/releases/v2.0.1-live-test-readiness.md) for remaining live broker-data, account-isolation, migration/rollback, licensing and acceptance checks. Until these pass, there is no stable `v2.0.1` tag.
 
 ---
 
