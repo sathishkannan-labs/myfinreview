@@ -312,6 +312,42 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
         return page("Authorization was unsuccessful or expired. Return to Research Lab and try again.")
 
 
+@router.post("/market/fyers/test-data")
+async def fyers_test_market_data(user: User = Depends(current_user),
+                                 session: Session = Depends(get_session)):
+    """Personal read-only staging smoke check, one fixed equity instrument.
+
+    Never accepts symbols, dates or credentials from the browser. Does not
+    store data, place orders, or expose prices, fingerprint, or broker identity.
+    """
+    import os
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
+    from .market_smoke import check_stored_market_access
+    if (not _fyers_staging_owner(user.id) or
+        os.getenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","false").lower()!="true"):
+        raise HTTPException(403, "Personal FYERS data test disabled")
+    # Completed calendar days only; weekend gaps are legitimate, not filled.
+    end_date=datetime.now(ZoneInfo("Asia/Kolkata")).date()-timedelta(days=1)
+    start_date=end_date-timedelta(days=6)
+    try:
+        result=await check_stored_market_access(
+            session, user.id, "fyers",
+            history_instrument="NSE:INFY-EQ", quote_instrument="NSE:INFY-EQ",
+            start=start_date, end=end_date)
+        return {"provider":"fyers","instrument":"NSE:INFY-EQ",
+                "profile":result.profile,"history":result.history,
+                "quotes":result.quotes,"history_bars":result.history_bars,
+                "history_start":start_date.isoformat(),
+                "history_end":end_date.isoformat(),
+                "data_rights":"NOT_ASSESSED",
+                "quote_exchange_time":"NOT_VERIFIED",
+                "trading_enabled":False,"stored":False}
+    except Exception:
+        # Never echo the underlying broker response, token or DB exception.
+        raise HTTPException(503, "Read-only FYERS market test unavailable")
+
+
 @router.post("/market/fyers/test-profile")
 async def fyers_test_profile(user: User = Depends(current_user),
                              session: Session = Depends(get_session)):
