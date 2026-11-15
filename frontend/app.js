@@ -10,7 +10,12 @@ async function refreshAllIntelligence() {
     }
     const userId = parseInt(userIdStr);
     const btn = document.getElementById('refresh-intel-btn');
-    
+    const outcome = document.getElementById('refresh-intel-outcome');
+    const reportOutcome = (message, type) => {
+        if (outcome) outcome.textContent = message;
+        showToast(message, type);
+    };
+
     // --- COOLDOWN LOGIC (3 Hours) ---
     const lastRefresh = localStorage.getItem(`finreview_last_refresh_${userId}`);
     const now = Date.now();
@@ -23,48 +28,58 @@ async function refreshAllIntelligence() {
         return;
     }
 
-    const setStatus = (msg) => {
-        const msgEl = document.getElementById('loading-msg');
-        if (msgEl) msgEl.innerText = msg;
+    const refreshStep = async (path) => {
+        try {
+            return await fetch(CONFIG.API_URL + path, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+            });
+        } catch {
+            return null;
+        }
     };
-
-    toggleLoading(true, "Initiating Intelligence Refresh...");
+    if (outcome) outcome.textContent = "";
+    toggleLoading(true, "Updating portfolio valuation…");
     if (btn) btn.disabled = true;
 
     try {
-        // Phase 1: Heavy Data Collection (Prices)
-        // Note: News ingestion removed here; now handled by background scheduler
-        setStatus("Updating portfolio valuations & LTP...");
-        await fetch(`${CONFIG.API_URL}/analytics/${userId}/calculate`, { 
-            method: 'POST', 
-            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } 
-        });
-        setStatus("Market data synchronized.");
+        const valuation = await refreshStep(`/analytics/${userId}/calculate`);
+        if (valuation?.status === 401) {
+            reportOutcome("Your session expired. Sign in again to refresh.", "warning");
+            return;
+        }
+        if (!valuation?.ok) {
+            reportOutcome("Portfolio valuation could not be refreshed. The previous results are still visible.", "danger");
+            return;
+        }
 
-        // Phase 2: Diagnostic Magic (AI & Alerts)
-        setStatus("Doing the AI magic now...");
-        await Promise.all([
-            fetch(`${CONFIG.API_URL}/insights/${userId}/generate`, { method: 'POST', headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } })
-                .then(() => setStatus("AI Diagnostic briefing complete."))
-                .catch(e => { console.error('Insights generation failed', e); }),
-            
-            fetch(`${CONFIG.API_URL}/alerts/${userId}/evaluate`, { method: 'POST', headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } })
-                .then(() => setStatus("Checking for risk signals & drift..."))
-                .catch(e => { console.error('Alert evaluation failed', e); })
+        toggleLoading(true, "Refreshing the briefing and alerts…");
+        const [briefing, alerts] = await Promise.all([
+            refreshStep(`/insights/${userId}/generate`),
+            refreshStep(`/alerts/${userId}/evaluate`)
         ]);
-
-        setStatus("Finalizing your diagnostic report...");
-        
-    } catch (e) {
-        console.error('Parallel refresh failed', e);
-        showToast("Intelligence refresh encountered errors.", "danger");
+        const briefingItems = briefing?.ok ? await briefing.json().catch(() => null) : null;
+        const briefingUpdated = Array.isArray(briefingItems) &&
+            briefingItems.some(item => item?.type === 'PORTFOLIO_BRIEFING');
+        const messages = ["Portfolio updated."];
+        if (briefingUpdated) {
+            messages.push("Briefing refreshed.");
+        } else if (briefing?.status === 429) {
+            messages.push("Briefing is on cooldown. Previous briefing remains available if one exists.");
+        } else {
+            messages.push("Briefing could not be refreshed.");
+        }
+        messages.push(alerts?.ok ? "Alerts checked." : "Alert check unavailable.");
+        if (briefing?.status === 401 || alerts?.status === 401) {
+            messages.push("Sign in again to retry.");
+        }
+        await fetchPortfolioSummary();
+        reportOutcome(messages.join(" "), briefingUpdated && alerts?.ok ? "success" : "warning");
+    } finally {
+        toggleLoading(false);
+        if (btn) btn.disabled = false;
+        updateRefreshUI(userId);
     }
-
-    // always refresh UI after attempting all steps - Rely on backend timestamp via summary fetch
-    showToast("Intelligence Refresh Complete!", "success");
-    fetchPortfolioSummary(); 
-
-    toggleLoading(false);
 }
 
 function updateRefreshUI(userId) {

@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinReview v2.0.1 — Research Lab</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>body{background:#f5f7fb;color:#172435} .card{border:1px solid #e5e9f0;border-radius:14px} .subtle{color:#667085} td{vertical-align:middle}
+  :root{--lab-ink:#13233b;--lab-accent:#175bca;--lab-soft:#eaf1ff}
+  body{background:#f3f6fb;color:var(--lab-ink)}
+  .lab-hero{background:linear-gradient(115deg,#14294c,#174c99);border-radius:20px;color:#fff;padding:1.7rem 2rem}
+  .lab-hero p{color:#d5e4fb}
+  .lab-step{background:#fff;border:1px solid #e3eaf4;border-radius:14px;padding:1rem;height:100%}
+  .step-count{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#eaf1ff;color:#175bca;font-weight:700;margin-right:.35rem}
+  .lab-card{border:1px solid #e0e7f2!important;box-shadow:0 5px 18px rgba(17,44,90,.04)}
+  .lab-chip{display:inline-flex;border-radius:100px;padding:.28rem .65rem;font-size:.79rem;background:#eaf1ff;color:#175bca;font-weight:700}
+  .lab-note{background:#f7f9fc;border-left:3px solid #6884b8;padding:.8rem 1rem;font-size:.89rem;border-radius:5px}
+  .lab-metric{font-size:1.45rem;font-weight:750;letter-spacing:-.04em}
+  .lab-result{border:1px solid #dce5f2;border-radius:14px;padding:1.1rem;background:#fff;height:100%}
+  .lab-secondary{font-size:.88rem;color:#58677f}
+  .lab-hidden{display:none}
+  #labOptional summary{cursor:pointer;font-size:1.05rem;font-weight:650}
+  #labOptional[open] summary{margin-bottom:1.2rem}
+  .data-pill{border-radius:12px;background:#f0f5fc;padding:.8rem}
+  [hidden]{display:none!important}
+  .lab-choice{border:1px solid #dce6f3;background:white;border-radius:14px;padding:1rem;display:flex;gap:.9rem;align-items:center;min-height:90px}
+  .lab-choice strong{display:block}
+  .lab-choice p{margin:0;color:#64748b;font-size:.86rem}
+  .lab-summary{border:1px solid #d9e6f6;background:#f3f8ff;border-radius:14px;padding:1.2rem}
+  .lab-summary h3{font-size:1.12rem;font-weight:700}
+  .lab-good{color:#14644a}.lab-muted{color:#596579}
+  .lab-footer{border-top:1px solid #e4eaf2;padding-top:1rem}
+  .lab-stat{font-size:.8rem;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:#61728b}
+  .lab-status-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#216cc5;margin-right:6px}
+  .lab-callout{border:1px solid #d9e4f2;border-radius:12px;padding:1.1rem;background:#fff}
+  #fyersSymbolMatches{max-height:240px;overflow-y:auto;box-shadow:0 8px 20px rgba(15,23,42,.12);position:relative;z-index:5}
+  #fyersSymbolMatches .list-group-item{cursor:pointer}
+  #fyersSymbolMatches .list-group-item:focus{outline:2px solid #175bca;outline-offset:-2px}
+  .app-header{background:#fff;border-bottom:1px solid #e2e8f0}
+  .app-header .nav-link{color:#64748b;font-weight:500}
+  .app-header .nav-link.active{color:#2563eb;border-bottom:2px solid #2563eb}
+  .app-header .navbar-brand{font-weight:700;color:#0f172a}
+  @media print{
+    body{background:#fff;color:#111}
+    nav,.lab-hero,.lab-step,#notice,#liveBrokerResearch,#csvResearch,#labOptional,.lab-footer,button{display:none!important}
+    #labReport{display:block!important;border:0!important;box-shadow:none!important;margin:0!important;padding:0!important}
+    .lab-result{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<nav class="app-header navbar navbar-expand-lg sticky-top mb-3" aria-label="FinReview navigation">
+ <div class="container">
+  <a class="navbar-brand" href="./index.html">FinReview</a>
+  <div class="d-flex align-items-center flex-wrap gap-3">
+   <a class="nav-link" href="./index.html">Dashboard &amp; Portfolio</a>
+   <a class="nav-link active" aria-current="page" href="./intelligence.html">Research Lab <span class="badge bg-primary">v2.0.1</span></a>
+  </div>
+ </div>
+</nav>
+<main class="container pb-4" style="max-width:1120px">
+<header class="lab-hero mb-3">
+ <div class="lab-chip mb-2" style="background:#e0efff">Research Workspace</div>
+ <h1 class="h2 fw-bold mb-2">Explore historical market trends</h1>
+ <p class="mb-0">Research validated historical price data using transparent moving-average and breakout rules. Compare the observations, understand their limitations and export a report. No trading or investment recommendations.</p>
+</header>
+<div class="row g-2 mb-3" aria-label="Research workflow">
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">1</span><strong>Bring data</strong><div class="lab-secondary mt-2">Use a permitted broker connection, CSV, or synthetic sample.</div></div></div>
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">2</span><strong>Run checks</strong><div class="lab-secondary mt-2">Validation, moving averages and breakout rules.</div></div></div>
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">3</span><strong>Interpret</strong><div class="lab-secondary mt-2">See evidence, as-of date and limitations. No trade execution.</div></div></div>
+</div>
+<div id="notice" role="status" class="lab-note mb-3">Checking your FinReview login…</div>
+<section class="card lab-card p-4 mb-3" id="liveBrokerResearch" hidden aria-labelledby="liveBrokerResearchTitle">
+ <div class="lab-chip mb-2">Personal FYERS connection · read-only</div>
+ <h2 id="liveBrokerResearchTitle" class="h4 fw-bold">Research actual FYERS historical data</h2>
+ <p class="lab-secondary">Uses the encrypted FYERS connection already stored for your allowlisted staging account. Pick a supported equity and run 20/50-day moving-average and 20-bar breakout checks on completed daily candles. A separate quote snapshot is displayed when available; it is <strong>not</strong> treated as a completed daily close or a verified real-time exchange feed.</p>
+ <div class="row g-2 align-items-end">
+  <div class="col-md-7"><label for="fyersResearchSymbol" class="form-label">Find an NSE-listed equity</label>
+   <input type="search" class="form-control" id="fyersResearchSymbol"
+    placeholder="Search company or ticker, e.g. Infosys, SBIN" autocomplete="off"
+    role="combobox" aria-autocomplete="list" aria-expanded="false"
+    aria-controls="fyersSymbolMatches" maxlength="64">
+   <div class="list-group mt-1" id="fyersSymbolMatches" role="listbox" hidden></div>
+   <p class="small lab-secondary mt-1 mb-0" id="fyersSymbolStatus" role="status">Type two or more characters to search the current FYERS NSE equity directory.</p>
+   <input type="hidden" id="fyersSelectedSymbol" value="">
+  </div>
+  <div class="col-md-5"><button class="btn btn-primary w-100" id="runFyersResearch" type="button" disabled>Analyze FYERS historical data</button></div>
+ </div>
+ <p class="lab-note mt-3 mb-0" id="fyersResearchStatus" role="status">Checking personal broker session…</p>
+ <button class="btn btn-link btn-sm px-0 mt-2" id="openFyersConnection" type="button">Manage FYERS connection</button>
+ <div class="lab-secondary small mt-2">For your personal non-trading FYERS app only. No auto-refresh, streaming or public quote redistribution; data may require reauthorization each day. Community users can use CSV research without a broker account.</div>
+</section>
+<section class="card lab-card p-4 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
+<div class="lab-chip mb-2">No broker account required</div>
+<h2 class="h4 fw-bold mb-2" id="csvResearchTitle">Start a historical research report</h2>
+<p class="lab-secondary mb-3">Choose a sample to see how the analysis works, or bring your own completed daily candle data. Only your submitted historical prices are analyzed. No file contents are saved.</p>
+<div class="row g-3 mb-3" aria-label="Select a research data source">
+ <div class="col-md-6"><div class="lab-choice">
+  <div class="flex-grow-1"><strong>Explore the sample</strong><p>65 synthetic daily candles for a guided example, never real market data</p></div>
+  <button type="button" class="btn btn-outline-primary btn-sm text-nowrap" id="runDemoResearch">Try sample</button>
+ </div></div>
+ <div class="col-md-6"><div class="lab-choice">
+  <div><strong>Import your own historical CSV</strong><p>Use your own sourced daily OHLCV data for a meaningful report</p></div>
+ </div></div>
+</div>
+<details class="mb-3"><summary class="small fw-semibold">CSV format and data requirements</summary>
+ <p class="small subtle mt-2 mb-1">Columns: <code>timestamp,open,high,low,close,volume</code>. Timestamps must have a timezone; include only completed daily candles (50+ dates recommended), maximum 3 MB.</p>
+ <a class="small" href="./data/research-sample-synthetic.csv" download="finreview-synthetic-daily-candles.csv">Download sample CSV for reference</a>
+</details>
+<form id="researchCsvForm" class="row g-2 align-items-end">
+<div class="col-md-8"><label class="form-label" for="researchCsvInput">Historical daily CSV</label><input class="form-control" id="researchCsvInput" type="file" accept=".csv,text/csv" required></div>
+<div class="col-md-4"><button id="runCsvResearch" class="btn btn-primary w-100" type="submit">Analyze CSV</button></div>
+</form>
+<div id="csvResearchNotice" class="lab-note mt-3" role="status">Ready to research. Choose “Try sample” or upload your historical CSV.</div>
+
+</section>
+<section id="labReport" class="card lab-card p-4 mb-3 lab-hidden" aria-labelledby="labReportHeading">
+ <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
+  <h3 id="labReportHeading" class="h5 fw-bold mb-1">Your historical research report</h3>
+  <div class="d-flex gap-2 flex-wrap"><button class="btn btn-outline-primary btn-sm" id="printResearchReport" type="button">Print report</button><button class="btn btn-outline-secondary btn-sm" id="downloadResearchReport" type="button">Download JSON</button></div>
+ </div>
+ <div id="labOverview" class="lab-summary mb-3" role="status"></div>
+ <div class="row g-2 mb-3" id="labMetrics"></div>
+ <details id="reportAnalysisDetails">
+  <summary class="fw-semibold">Analysis details</summary>
+  <div id="strategyResearchResults" class="row g-3 mt-1" aria-live="polite"></div>
+ </details>
+ <div class="lab-note mt-3">These are deterministic historical observations, <strong>not buy/sell signals</strong>. They are not added to the signal register or paper account. Prices, splits/dividends, exchange holidays, and data rights have not been independently verified.</div>
+</section>
+<details id="labOptional" class="card lab-card p-4 mb-3" hidden><summary>Personal staging diagnostics <span class="lab-secondary fw-normal">· Maintainer only</span></summary>
+<div class="lab-note mb-3">The following interfaces are development foundations, not end-to-end broker trading features. FYERS individual-app login can be enabled only for an allowlisted staging account. Licensed quotes, automated signals and order simulation are not active in the Community preview.</div>
+<section class="card p-3 mb-3" id="fyersConnectionPanel">
+ <h4 class="h5 fw-bold">FYERS personal app — private staging connection</h4>
+ <p class="lab-secondary">For the FYERS individual app creator only. Login happens on FYERS, never in FinReview. No order placement.</p>
+ <div id="fyersConnectStatus" role="status" class="lab-note mb-3">Checking whether your FinReview staging account is approved for FYERS testing…</div>
+ <div class="d-flex gap-2 flex-wrap">
+  <button type="button" class="btn btn-primary" id="connectFyers" disabled>Connect FYERS</button>
+  <button type="button" class="btn btn-outline-secondary" id="refreshFyersStatus">Refresh connection status</button>
+  <button type="button" class="btn btn-outline-primary" id="probeFyersProfile" disabled>Test read-only profile</button>
+  <button type="button" class="btn btn-outline-primary" id="probeFyersData" disabled>Verify FYERS candles + quote</button>
+  <button type="button" class="btn btn-outline-danger" id="disconnectFyers" disabled>Disconnect locally</button>
+ </div>
+ <div id="fyersDataResult" class="small lab-note mt-3" role="status">Optional diagnostic check has not been run on this page load. An analysis report can independently verify historical-data retrieval.</div>
+ <p class="lab-secondary small mt-2 mb-0">The test requests one read-only INFY daily-candle sample and one quote. It does not store or redistribute market prices. Reauthorize if your daily FYERS token has expired.</p>
+</section>
+<details id="labLegacyDiagnostics" class="mt-3"><summary class="lab-secondary fw-semibold">Incomplete operator signals and paper-ledger internals</summary>
+<div class="row g-3 mb-3 mt-2">
+<div class="col-md-4"><div class="card p-3"><div class="subtle">Active / Watching</div><h2 id="activeCount">—</h2></div></div>
+<div class="col-md-4"><div class="card p-3"><div class="subtle">Expired / Invalidated</div><h2 id="expiredCount">—</h2></div></div>
+<div class="col-md-4"><div class="card p-3"><div class="subtle">Paper cash</div><h2 id="paperCash">—</h2></div></div>
+</div>
+<section class="card p-3 mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h4 class="m-0">Operator-generated signals (experimental)</h4><div>
+<label class="me-2"><input type="checkbox" id="includeHistory"> Include expired and historical</label>
+<button class="btn btn-primary btn-sm" id="refresh">Refresh</button></div></div>
+<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Symbol</th><th>Strategy</th><th>Status</th><th>Reference</th><th>Created (IST)</th><th>Expires (IST)</th></tr></thead><tbody id="signals"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+</section>
+<section class="card p-3"><h4>Paper ledger (incomplete simulation)</h4>
+<div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+<button type="button" class="btn btn-outline-primary btn-sm" id="initializePaperAccount">Initialize experimental virtual balance</button>
+<span class="subtle small" id="paperInitNotice">No orders or fills are simulated from CSV research.</span>
+</div><p class="subtle">No real orders are sent. The ledger is only populated by an authorised simulation worker using recorded market observations.</p>
+<table class="table table-sm"><thead><tr><th>Symbol</th><th>Quantity</th><th>Fill price</th><th>Time</th></tr></thead><tbody id="trades"><tr><td colspan="4">No trades loaded</td></tr></tbody></table></section>
+</details>
+</details>
+<footer class="lab-footer small lab-secondary mt-4">
+ <strong>Research limitations:</strong> These observations describe completed historical candles, not buy/sell signals, forecasts or investment advice. Data provenance, corporate-action adjustment, exchange holidays and feed permissions must be verified by the data owner. No live orders are available.
+</footer>
+</main><script src="./config.js"></script><script>
+const token=localStorage.getItem('finreview_token');
+const notice=document.querySelector('#notice');
+const t=(s)=>{const e=document.createElement('span');e.textContent=String(s??'—');return e.textContent};
+const date=(s)=>{if(!s)return '—';const d=new Date(s);return Number.isNaN(d.getTime())?'Date unavailable':d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});};
+async function api(path){
+ const r=await fetch(CONFIG.API_URL+path,{headers:{Authorization:'Bearer '+token}});
+ if(!r.ok)throw Error('API '+r.status+' — please sign in to your existing FinReview dashboard');
+ return r.json();
+}
+async function refresh(){
+ if(!token){notice.className='alert alert-warning';notice.textContent='Please log in via the portfolio dashboard first.';return;}
+ try{
+ const [signals,paper]=await Promise.all([api('/v2/signals?active_only=false'),api('/v2/paper-account')]);
+ const shown=document.querySelector('#includeHistory').checked?signals:signals.filter(s=>['ACTIVE','WATCHING'].includes(s.effective_status));
+ const body=document.querySelector('#signals');body.replaceChildren();
+ for(const s of shown){
+   const tr=document.createElement('tr');
+   for(const v of [s.symbol,s.strategy,s.effective_status,'₹'+s.reference_price,date(s.created_at),date(s.expires_at)]){
+     const td=document.createElement('td');td.textContent=String(v);tr.appendChild(td);
+   }body.appendChild(tr);
+ }
+ if(!shown.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='No signals match this filter';tr.appendChild(td);body.appendChild(tr);}
+ document.querySelector('#activeCount').textContent=signals.filter(s=>['ACTIVE','WATCHING'].includes(s.effective_status)).length;
+ document.querySelector('#expiredCount').textContent=signals.filter(s=>['EXPIRED','INVALIDATED'].includes(s.effective_status)).length;
+ document.querySelector('#paperCash').textContent=paper.initialized?'₹'+Number(paper.account.cash).toLocaleString('en-IN'):'Not configured';
+ const trades=document.querySelector('#trades');trades.replaceChildren();
+ for(const x of (paper.trades||[])){const tr=document.createElement('tr');for(const v of [x.symbol,x.quantity,x.fill_price,date(x.filled_at)]){const td=document.createElement('td');td.textContent=String(v);tr.appendChild(td);}trades.appendChild(tr);}
+ if(!(paper.trades||[]).length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='No simulated fills';tr.appendChild(td);trades.appendChild(tr);}
+ notice.textContent='Signed in · CSV research is available above. Optional operator-generated signals are separate from uploaded CSV observations.';
+ }catch(e){notice.className='alert alert-warning';notice.textContent=e.message;}
+}
+let lastReport=null;
+document.querySelector('#printResearchReport').addEventListener('click',()=>{
+ if(lastReport)window.print();
+});
+const reportAnalysisDetails=document.querySelector('#reportAnalysisDetails');
+let analysisWasOpen=false;
+window.addEventListener('beforeprint',()=>{
+ analysisWasOpen=reportAnalysisDetails.open;
+ reportAnalysisDetails.open=true;
+});
+window.addEventListener('afterprint',()=>{
+ reportAnalysisDetails.open=analysisWasOpen;
+});
+document.querySelector('#downloadResearchReport').addEventListener('click',()=>{
+ if(!lastReport)return;
+ const text=JSON.stringify(lastReport,null,2);
+ const file=new Blob([text],{type:'application/json'});
+ const url=URL.createObjectURL(file);
+ const a=document.createElement('a');a.href=url;a.download='finreview-historical-research.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+});
+document.querySelector('#researchCsvForm').addEventListener('submit',event=>{
+ event.preventDefault();
+ const file=document.querySelector('#researchCsvInput').files[0];
+ analyzeHistoricalFile(file);
+});
+document.querySelector('#runDemoResearch').addEventListener('click',async()=>{
+ const btn=document.querySelector('#runDemoResearch');
+ const notice=document.querySelector('#csvResearchNotice');
+ btn.disabled=true;
+ try{
+  const r=await fetch('./data/research-sample-synthetic.csv',{cache:'no-store'});
+  if(!r.ok)throw Error('Sample file unavailable');
+  const buffer=await r.arrayBuffer();
+  const file=new File([buffer],'finreview-synthetic-demo.csv',{type:'text/csv'});
+  await analyzeHistoricalFile(file,true);
+ }catch(e){notice.textContent='Unable to open demonstration: '+e.message;}
+ finally{btn.disabled=false;}
+});
+async function analyzeHistoricalFile(file,synthetic=false){
+ const notice=document.querySelector('#csvResearchNotice');
+ const button=document.querySelector('#runCsvResearch');
+ const panel=document.querySelector('#strategyResearchResults');
+ panel.replaceChildren();
+ document.querySelector('#labReport').classList.add('lab-hidden');
+ lastReport=null;
+ if(!token){notice.textContent='Sign in to the portfolio dashboard before analyzing data.';return;}
+ if(!file || file.size===0 || file.size>3000000){notice.textContent='Choose a nonempty daily candle CSV no larger than 3 MB.';return;}
+ button.disabled=true;
+ notice.textContent='Validating and analyzing historical candles…';
+ try{
+   const response=await fetch(CONFIG.API_URL+'/v2/market/csv/research',{
+     method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'text/csv'},
+     body:file
+   });
+   const data=await response.json();
+   if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
+   renderResearchReport(data,notice,{label:file.name,synthetic,provider:'csv'});
+   document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(err){notice.textContent='Unable to analyze: '+err.message;}
+ finally{button.disabled=false;}
+}
+function makeExportReport(data,sourceMeta){
+ const broker=sourceMeta.provider==='fyers';
+ return {...data,provenance:{
+   provider:broker?'FYERS':sourceMeta.synthetic?'FINREVIEW_SYNTHETIC_SAMPLE':'USER_UPLOADED_CSV',
+   filename:broker?null:sourceMeta.label,
+   instrument:broker?sourceMeta.label:null,
+   synthetic:sourceMeta.synthetic,
+   generated_at:new Date().toISOString(),
+   observation_period:{start:data.first_timestamp,end:data.last_timestamp},
+   limitations:{
+     adjustment:data.adjustment,
+     exchange_calendar:data.exchange_calendar,
+     source_accuracy:sourceMeta.synthetic?'SYNTHETIC':broker?'PROVIDER_REPORTED':'INDEPENDENTLY_UNVERIFIED',
+     exchange_timestamp_verified:data.exchange_timestamp_verified??false,
+     data_rights:data.data_rights??'NOT_VERIFIED'
+   }
+ }};
+}
+function renderResearchReport(data,notice,sourceMeta){
+ const panel=document.querySelector('#strategyResearchResults');panel.replaceChildren();
+ if(!data||!data.rows||!data.strategies){
+   document.querySelector('#labReport').classList.add('lab-hidden');
+   notice.textContent='Not enough completed historical data for this report.';
+   return;
+ }
+   lastReport=makeExportReport(data,sourceMeta);
+   document.querySelector('#labReport').classList.remove('lab-hidden');
+   const overview=document.querySelector('#labOverview');
+   overview.replaceChildren();
+   const heading=document.createElement('h3');
+   heading.textContent='What the data shows';
+   overview.appendChild(heading);
+   const breakout=data.strategies?.breakout?.observation;
+   const trend=data.strategies?.sma_trend?.observation;
+   const summary=document.createElement('p');summary.className='mb-2';
+   const breakoutText=breakout===null||breakout===undefined?'not enough history for a 20-bar breakout check':
+     breakout.state==='CANDIDATE'?'the latest completed close exceeded the previous 20-bar high':
+     'the latest completed close did not exceed the previous 20-bar high';
+   const trendText=trend===null||trend===undefined?'not enough history for a 20/50-day trend check':
+     trend.state==='CANDIDATE'?'the 20-day average is above the 50-day average':
+     'the 20-day average is not above the 50-day average';
+   summary.textContent='Based on '+data.rows+' historical candles, '+breakoutText+'; '+trendText+'. These conditions describe past prices, not what happens next.';
+   overview.appendChild(summary);
+   const asof=new Date(data.last_timestamp);
+   const ageDays=Number.isNaN(asof.getTime())?null:Math.floor((Date.now()-asof.getTime())/86400000);
+   const quality=document.createElement('div');quality.className='lab-secondary small';
+   const sourceLabel=sourceMeta.provider==='fyers'?'FYERS · PERSONAL USE ONLY':
+     sourceMeta.synthetic?'SYNTHETIC SAMPLE':'User-supplied CSV · Independently unverified';
+   quality.textContent=sourceLabel+' · '+sourceMeta.label+
+     ' · '+date(data.first_timestamp)+' to '+date(data.last_timestamp)+
+     (ageDays!==null&&ageDays>7?' · Historical data is over 7 days old.':'')+
+     ' · No market-data rights or corporate-action adjustments certified.';
+   overview.appendChild(quality);
+   if(sourceMeta.provider==='fyers'){
+     const quote=document.createElement('div');quote.className='lab-note mt-3';
+     if(data.quote_status==='SNAPSHOT_RECEIVED'&&data.quote){
+       quote.textContent='FYERS quote API snapshot (exchange timestamp unverified): ₹'+Number(data.quote.last_price).toFixed(2)+
+        ' · API received '+date(data.quote.received_at)+
+        '. Server receipt time only, NOT a verified exchange trade time or streaming live quote. No orders.';
+     }else{
+       quote.textContent='Current quote unavailable. Historical research remains valid; last close is not a current price.';
+     }
+     overview.appendChild(quote);
+   }
+
+   const synthetic=sourceMeta.synthetic;
+   const sampleWarning=sourceMeta.provider==='fyers'?' FYERS data is unadjusted and exchange timestamps are not verified.':synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
+   notice.textContent='Research report generated. Source and limitations shown below.'+sampleWarning;
+   document.querySelector('#reportAnalysisDetails').open=false;
+   const metrics=document.querySelector('#labMetrics');metrics.replaceChildren();
+   for(const [heading,value] of [
+      ['Candles validated',String(data.rows)],
+      ['First candle',date(data.first_timestamp)],
+      ['Most recent candle',date(data.last_timestamp)],
+      ['Last historical close','₹'+Number(data.last_close).toFixed(2)]
+   ]){
+     const col=document.createElement('div');col.className='col-6 col-lg-3';
+     const el=document.createElement('div');el.className='data-pill h-100';
+     const label=document.createElement('div');label.className='lab-secondary';label.textContent=heading;
+     const val=document.createElement('div');val.className=heading==='Candles validated'||heading==='Last historical close'?'lab-metric':'fw-semibold mt-2';
+     val.textContent=value;el.append(label,val);col.appendChild(el);metrics.appendChild(col);
+   }
+   for(const [key,description,explanation] of [
+     ['breakout','20-bar breakout','Checks whether the last completed close exceeded the previous 20 daily highs.'],
+     ['sma_trend','20/50-day moving average','Compares the average close of the last 20 daily candles against the last 50.']
+   ]){
+     const item=data.strategies[key];
+     const col=document.createElement('div');col.className='col-lg-6';
+     const card=document.createElement('article');card.className='lab-result';
+     const heading=document.createElement('h5');heading.className='h6 fw-bold';heading.textContent=description;
+     const explain=document.createElement('p');explain.className='lab-secondary';explain.textContent=explanation;
+     const chip=document.createElement('span');chip.className='lab-chip mb-3';
+     const obs=item.observation;
+     chip.textContent=obs?(obs.state==='CANDIDATE'?'Condition met (historical)':'Condition not met (historical)'):'Insufficient history';
+     card.append(heading,explain,chip);
+     if(obs){
+       const details=document.createElement('p');details.className='mb-2';details.textContent=obs.rationale;
+       card.appendChild(details);
+       const stats=document.createElement('dl');stats.className='row small mb-0';
+       for(const [label,value] of [
+         ['As of',date(obs.as_of)],
+         ['Historical close','₹'+Number(obs.reference_price).toFixed(2)],
+         ['Threshold / fast SMA',obs.trigger===null?'—':'₹'+Number(obs.trigger).toFixed(2)],
+         ['ATR',obs.atr===null?'Not calculated':'₹'+Number(obs.atr).toFixed(2)]
+       ]){
+         const dt=document.createElement('dt');dt.className='col-6 lab-secondary';dt.textContent=label;
+         const dd=document.createElement('dd');dd.className='col-6 fw-semibold';dd.textContent=value;
+         stats.append(dt,dd);
+       }
+       card.appendChild(stats);
+     }else{
+       const guidance=document.createElement('p');guidance.className='lab-secondary';
+       guidance.textContent='Upload more completed daily candles to calculate this rule.';
+       card.appendChild(guidance);
+     }
+     col.appendChild(card);panel.appendChild(col);
+   }
+}
+
+document.querySelector('#initializePaperAccount').addEventListener('click',async()=>{
+ const notice=document.querySelector('#paperInitNotice');
+ if(!token){notice.textContent='Sign in first.';return;}
+ try{
+   const r=await fetch(CONFIG.API_URL+'/v2/paper-account',{
+     method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+     body:JSON.stringify({initial_cash:100000})
+   });
+   const result=await r.json();
+   if(!r.ok)throw Error(typeof result.detail==='string'?result.detail:'HTTP '+r.status);
+   notice.textContent='Virtual account initialized (or already exists). This does not create simulated trades.';
+   await refresh();
+ }catch(e){notice.textContent='Unable to initialize: '+e.message;}
+});
+
+document.querySelector('#refresh').addEventListener('click',refresh);
+document.querySelector('#includeHistory').addEventListener('change',refresh);
+document.querySelector('#labLegacyDiagnostics').addEventListener('toggle',event=>{if(event.target.open)refresh();});
+
+let fyersTestAvailable=false;
+let fyersSessionDeadline=0;
+let fyersSessionTimer;
+let fyersResearchPending=false;
+let rejectedFyersDeadline=null;
+function updateFyersResearchButton(){
+ document.querySelector('#runFyersResearch').disabled=
+   !fyersTestAvailable||Date.now()>=fyersSessionDeadline||!fyersSelected.value||fyersResearchPending;
+}
+function setFyersSessionDeadline(deadline){
+ fyersSessionDeadline=deadline;
+ clearTimeout(fyersSessionTimer);
+ updateFyersResearchButton();
+ if(deadline>Date.now()&&Number.isFinite(deadline)){
+  fyersSessionTimer=setTimeout(updateFyersResearchButton,deadline-Date.now());
+ }
+}
+async function refreshFyersConnection(){
+ const label=document.querySelector('#fyersConnectStatus');
+ const connect=document.querySelector('#connectFyers');
+ const probe=document.querySelector('#probeFyersProfile');
+ const dataButton=document.querySelector('#probeFyersData');
+ const disconnect=document.querySelector('#disconnectFyers');
+ connect.disabled=true;probe.disabled=true;dataButton.disabled=true;disconnect.disabled=true;
+ setFyersSessionDeadline(0);
+ if(!token){label.textContent='Log in to your FinReview staging account first.';return;}
+ try{
+  const [cap,stat]=await Promise.all([
+   api('/v2/market/fyers/test-availability'),api('/v2/market/connections')
+  ]);
+  fyersTestAvailable=Boolean(cap.available);
+  // Diagnostics are visible only to the staging account allowlisted by the backend.
+  const diagnostics=document.querySelector('#labOptional');
+  diagnostics.hidden=!fyersTestAvailable;
+  const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
+  const required=['historical','quotes'].map(purpose=>records.find(item=>item.purpose===purpose&&item.state==='STORED_UNVERIFIED'));
+  const deadline=required.every(Boolean)?Math.min(...required.map(item=>item.expires_at?Date.parse(item.expires_at):Infinity)):0;
+  const connected=deadline>Date.now()&&deadline!==rejectedFyersDeadline;
+  setFyersSessionDeadline(connected?deadline:0);
+  document.querySelector('#liveBrokerResearch').hidden=!fyersTestAvailable;
+  document.querySelector('#fyersResearchStatus').textContent=connected?
+    'FYERS connection available. Choose an equity to run historical research.':
+    'FYERS session missing or expired. Reconnect from Personal staging diagnostics to use broker data.';
+  const expired=records.length>0&&!connected;
+  if(!fyersTestAvailable){
+   label.textContent='Personal staging diagnostics unavailable for this account.';
+   return;
+  }
+  if(window.location.hash==='#fyersConnectionPanel'){
+   document.querySelector('#fyersConnectionPanel').scrollIntoView({block:'start'});
+  }
+  connect.disabled=false;
+  probe.disabled=!connected;
+  dataButton.disabled=!connected;
+  disconnect.disabled=records.length===0;
+  label.textContent=connected?
+   'FYERS connection stored. Historical data access is checked when you run research; use diagnostics only if troubleshooting.':
+   expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
+   'FYERS staging login is available. Select Connect FYERS to authenticate on the official FYERS page.';
+ }catch(e){
+  label.textContent='FYERS connection status unavailable. '+e.message;
+ document.querySelector('#liveBrokerResearch').hidden=true;
+ document.querySelector('#runFyersResearch').disabled=true;
+ }
+}
+document.querySelector('#connectFyers').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersConnectStatus');
+ const button=document.querySelector('#connectFyers');
+ if(!token||!fyersTestAvailable)return;
+ button.disabled=true;label.textContent='Starting FYERS authorization…';
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/oauth/fyers/start',{
+   method:'POST',headers:{Authorization:'Bearer '+token}
+  });
+  const response=await r.json();
+  if(!r.ok)throw Error('Authorization unavailable (HTTP '+r.status+')');
+  const u=new URL(response.authorization_url);
+  if(u.protocol!=='https:'||u.hostname!=='api-t1.fyers.in')throw Error('Unexpected authorization host');
+  window.location.assign(u.href);
+ }catch(e){label.textContent='Unable to start FYERS login: '+e.message;button.disabled=false;}
+});
+document.querySelector('#openFyersConnection').addEventListener('click',()=>{
+ const detail=document.querySelector('#labOptional');
+ if(detail.hidden)return;
+ detail.open=true;
+ document.querySelector('#fyersConnectionPanel').scrollIntoView({behavior:'smooth',block:'start'});
+});
+// Search the current FYERS NSE cash-market instrument master, without leaking
+// personal access tokens or providing public/shared broker data.
+const fyersInput=document.querySelector('#fyersResearchSymbol');
+const fyersMatchList=document.querySelector('#fyersSymbolMatches');
+const fyersSelected=document.querySelector('#fyersSelectedSymbol');
+const fyersSearchStatus=document.querySelector('#fyersSymbolStatus');
+let fyersSearchSeq=0;
+let fyersSearchTimer=null;
+function clearFyersSuggestions(){
+ fyersMatchList.replaceChildren();
+ fyersMatchList.hidden=true;
+ fyersInput.setAttribute('aria-expanded','false');
+}
+fyersInput.addEventListener('input',()=>{
+ fyersSelected.value='';
+ document.querySelector('#runFyersResearch').disabled=true;
+ clearFyersSuggestions();
+ if(fyersSearchTimer)clearTimeout(fyersSearchTimer);
+ const q=fyersInput.value.trim();
+ const request=++fyersSearchSeq;
+ if(q.length<2){fyersSearchStatus.textContent='Enter at least two characters to search NSE equities.';return;}
+ if(!fyersTestAvailable){fyersSearchStatus.textContent='Personal broker search is not available for this account.';return;}
+ fyersSearchStatus.textContent='Searching FYERS instruments…';
+ fyersSearchTimer=setTimeout(async()=>{
+  try{
+   const response=await fetch(CONFIG.API_URL+'/v2/market/fyers/symbols?q='+encodeURIComponent(q),{
+    headers:{Authorization:'Bearer '+token},cache:'no-store'
+   });
+   if(!response.ok)throw Error('Instrument directory unavailable (HTTP '+response.status+')');
+   const data=await response.json();
+   if(request!==fyersSearchSeq||fyersInput.value.trim()!==q)return;
+   clearFyersSuggestions();
+   const rows=Array.isArray(data.results)?data.results:[];
+   if(!rows.length){fyersSearchStatus.textContent='No matching NSE EQ symbol found. Try another name or ticker.';return;}
+   for(const row of rows){
+    const choice=document.createElement('button');choice.type='button';
+    choice.className='list-group-item list-group-item-action';
+    choice.setAttribute('role','option');
+    choice.textContent=row.name+' · '+row.symbol;
+    choice.addEventListener('click',()=>{
+     fyersSelected.value=row.symbol;
+     fyersInput.value=row.name+' ('+row.symbol+')';
+     clearFyersSuggestions();
+     fyersSearchStatus.textContent='Selected: '+row.symbol+' · FYERS NSE cash-market instrument';
+     updateFyersResearchButton();
+     fyersInput.focus();
+    });
+    fyersMatchList.appendChild(choice);
+   }
+   fyersMatchList.hidden=false;
+   fyersInput.setAttribute('aria-expanded','true');
+   fyersSearchStatus.textContent=rows.length+' matching instruments. Choose a matching equity from the list.';
+  }catch(err){
+   if(request===fyersSearchSeq)fyersSearchStatus.textContent=err.message;
+  }
+ },280);
+});
+fyersInput.addEventListener('keydown',event=>{
+ if(event.key==='Escape'){clearFyersSuggestions();return;}
+ if(event.key==='ArrowDown'&&!fyersMatchList.hidden){
+  event.preventDefault();
+  fyersMatchList.querySelector('button')?.focus();
+ }
+});
+fyersMatchList.addEventListener('keydown',event=>{
+ if(event.key==='Escape'){event.preventDefault();clearFyersSuggestions();fyersInput.focus();}
+});
+document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
+ const notice=document.querySelector('#fyersResearchStatus');
+ if(!token||!fyersTestAvailable||!fyersSelected.value||Date.now()>=fyersSessionDeadline||fyersResearchPending)return;
+ const requestedDeadline=fyersSessionDeadline;
+ fyersResearchPending=true;
+ updateFyersResearchButton();
+ document.querySelector('#labReport').classList.add('lab-hidden');
+ lastReport=null;
+ notice.textContent='Fetching FYERS daily candles and quote with your encrypted broker session…';
+ try{
+  const symbol=fyersSelected.value;
+  const res=await fetch(CONFIG.API_URL+'/v2/market/fyers/research?instrument='+encodeURIComponent(symbol),{
+   headers:{Authorization:'Bearer '+token},cache:'no-store'
+  });
+  const data=await res.json();
+  if(res.status===409){
+   rejectedFyersDeadline=requestedDeadline;
+   if(fyersSessionDeadline===requestedDeadline)setFyersSessionDeadline(0);
+   document.querySelector('#labOptional').open=true;
+  }
+  if(!res.ok)throw Error(typeof data.detail==='string'?data.detail:'FYERS research unavailable (HTTP '+res.status+')');
+  if(data.status==='NO_DATA')throw Error('FYERS returned no completed historical candles for this instrument.');
+  renderResearchReport(data,notice,{label:symbol,provider:'fyers',synthetic:false});
+  document.querySelector('#fyersDataResult').textContent='This session: FYERS returned '+data.rows+' completed historical daily candles for '+symbol+' and '+(data.quote_status==='SNAPSHOT_RECEIVED'?'one quote API snapshot.':'no quote snapshot.')+' Exchange time and redistribution rights remain unverified.';
+  document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){notice.textContent='Unable to analyze FYERS data: '+e.message;}
+ finally{fyersResearchPending=false;updateFyersResearchButton();}
+});
+document.querySelector('#refreshFyersStatus').addEventListener('click',refreshFyersConnection);
+document.querySelector('#probeFyersProfile').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersConnectStatus');
+ const b=document.querySelector('#probeFyersProfile');b.disabled=true;
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/fyers/test-profile',{
+   method:'POST',headers:{Authorization:'Bearer '+token}
+  });
+  if(!r.ok)throw Error('Profile verification failed (HTTP '+r.status+')');
+  const data=await r.json();
+  label.textContent=data.authenticated?'FYERS read-only profile authenticated. Run historical research to verify instrument-specific data access; subscription rights are not certified.':
+   'Profile could not be authenticated.';
+ }catch(e){label.textContent=e.message;}
+ finally{b.disabled=false;}
+});
+document.querySelector('#probeFyersData').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersDataResult');
+ const btn=document.querySelector('#probeFyersData');
+ if(!token||!fyersTestAvailable)return;
+ btn.disabled=true;label.textContent='Checking one FYERS equity sample: profile, completed daily candles and quote…';
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/fyers/test-data',{
+   method:'POST',headers:{Authorization:'Bearer '+token}
+  });
+  const result=await r.json();
+  if(!r.ok)throw Error('Read-only market check unavailable (HTTP '+r.status+'). Reconnect FYERS if the daily session expired.');
+  const complete=result.profile==='AUTHENTICATED'&&result.history==='VERIFIED_SAMPLE'&&result.quotes==='VERIFIED_SAMPLE';
+  label.textContent=(complete?'Read-only sample checks succeeded. ':'Market-data verification is incomplete. ')+
+    'Profile: '+result.profile+' · Daily candles: '+result.history+
+    ' ('+result.history_bars+' bars, '+result.history_start+' to '+result.history_end+
+    ') · Quotes: '+result.quotes+
+    '. Exchange timestamps, permissions and redistribution rights are not certified.';
+ }catch(e){label.textContent=e.message;}
+ finally{btn.disabled=false;}
+});
+document.querySelector('#disconnectFyers').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersConnectStatus');
+ if(!window.confirm('Delete the locally stored FYERS token for this FinReview account? This does not revoke it at FYERS.'))return;
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/connections/fyers',{
+   method:'DELETE',headers:{Authorization:'Bearer '+token}
+  });
+  if(!r.ok)throw Error('Disconnect failed (HTTP '+r.status+')');
+  await refreshFyersConnection();
+ }catch(e){label.textContent=e.message;}
+});
+// Open the FYERS tools when returning from the fixed OAuth callback.
+if(window.location.hash==='#fyersConnectionPanel'){
+ document.querySelector('#labOptional').open=true;
+ // Do not display the owner-only section until the backend confirms eligibility.
+}
+refreshFyersConnection();
+if(!token){notice.textContent="Please sign in on the portfolio dashboard to use Research Lab.";}else{notice.textContent="Signed in · Choose FYERS research (if authorized) or analyze a historical CSV.";}
+</script></body></html>

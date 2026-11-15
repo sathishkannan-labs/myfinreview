@@ -8,6 +8,19 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.11', '3.14']
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: finreview-ci-only
+          POSTGRES_DB: finreview_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d finreview_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,4 +28,23 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -r backend/requirements.txt -r requirements-dev.txt
       - run: python -m pytest tests/test_portfolio.py tests/test_transaction_safety.py tests/test_database_startup.py tests/test_news_loading.py -q
+        env:
+          FINREVIEW_TEST_POSTGRES_URL: postgresql://postgres:finreview-ci-only@localhost:5432/finreview_ci
+          FINREVIEW_TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+      - run: python -m pytest tests/test_v2_intelligence.py tests/test_v2_market_data.py tests/test_v2_market_routes.py tests/test_v2_cache_strategy.py tests/test_v2_strategy_routes.py tests/test_v2_pipeline.py tests/test_v2_scheduled_reports.py tests/test_v2_zerodha.py tests/test_v2_live_quotes.py tests/test_v2_credential_vault.py tests/test_v2_connection_routes.py tests/test_v2_broker_oauth.py tests/test_v2_broker_oauth_routes.py tests/test_v2_session_probe.py tests/test_v2_market_smoke.py tests/test_v2_staging_smoke.py tests/test_v2_research_csv.py tests/test_v2_broker_token_expiry.py tests/test_v2_fyers_personal_login.py tests/test_v2_broker_research.py tests/test_v2_fyers_symbols.py -q
+      - run: python -m pytest tests/test_v2_render_staging_build.py tests/test_v2_research_navigation.py -q
+      - run: python -m compileall -q backend/intelligence
       - run: node --check frontend/app.js
+
+  research-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements.txt -r requirements-dev.txt playwright pypdf
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest tests/test_v2_research_browser.py -q
+        env:
+          FINREVIEW_TEST_BROWSER: "1"

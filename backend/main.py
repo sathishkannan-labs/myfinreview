@@ -92,7 +92,8 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Database init failed: {e}")
             if i == 2: 
-                logger.critical("Could not connect to DB after 3 attempts.")
+                logger.critical("Could not initialize the database after 3 attempts.")
+                raise
             else:
                 await asyncio.sleep(5) # Use async sleep to allow shutdown signals
     yield
@@ -100,6 +101,10 @@ async def lifespan(app: FastAPI):
     pass
 
 app = FastAPI(title="FinReview API - Community Edition", lifespan=lifespan)
+
+# Version 2 research endpoints; no live trading or order placement.
+from intelligence.routes import router as intelligence_router
+app.include_router(intelligence_router)
 
 # --- CORS CONFIGURATION ---
 app.add_middleware(
