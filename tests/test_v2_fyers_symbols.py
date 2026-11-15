@@ -12,8 +12,9 @@ from intelligence.market_data import MarketDataError
 SAMPLE={
  "NSE:INFY-EQ":{"description":"INFOSYS LIMITED","tradeStatus":1},
  "NSE:RELIANCE-EQ":{"description":"RELIANCE INDUSTRIES LTD","tradeStatus":1},
- "NSE:SBIN-EQ":{"description":"STATE BANK OF INDIA","tradeStatus":1},
+ "NSE:SBIN-EQ":{"symDetails":"STATE BANK OF INDIA","tradeStatus":1},
  "NSE:OLD-EQ":{"description":"SUSPENDED STOCK","tradeStatus":0},
+ "NSE:UNKNOWN-EQ":{"description":"UNKNOWN STATUS"},
  "NSE:NIFTY50-INDEX":{"description":"INDEX","tradeStatus":1},
  "NSE:NIFTY26NOVFUT":{"description":"FUTURE","tradeStatus":1},
  "BSE:SBIN-A":{"description":"OTHER EXCHANGE","tradeStatus":1},
