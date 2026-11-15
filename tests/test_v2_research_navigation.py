@@ -13,11 +13,11 @@ def test_research_link_visible_in_main_navigation_and_dashboard():
 
 
 def test_v2_status_is_visible_and_does_not_claim_live_trading():
-    assert "v2.0.1 Preview" in HOME
+    assert "v2.0.2 Preview" in HOME
     assert "Analyze historical prices from a CSV, or try a sample report." in HOME
     assert "Explore research signals, paper-account observations" not in HOME
     assert "No live orders are available" in RESEARCH
-    assert "FinReview v2.0.1 — Research Lab" in RESEARCH
+    assert "FinReview v2.0.2 — Research Lab" in RESEARCH
     assert "FYERS individual-app login can be enabled only" in RESEARCH
 
 

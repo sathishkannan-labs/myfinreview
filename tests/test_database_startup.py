@@ -85,7 +85,7 @@ for _ in range(2):
 with engine.connect() as connection:
     assert connection.execute(text('SELECT count(*) FROM "user"')).scalar_one() == 1
     tables = inspect(connection).get_table_names()
-    assert len(tables) == 12
+    assert len(tables) == 13
     protection = connection.execute(text("""
         SELECT relrowsecurity,
             has_table_privilege('anon', oid, 'SELECT'),
@@ -93,7 +93,7 @@ with engine.connect() as connection:
         FROM pg_class
         WHERE relnamespace = 'public'::regnamespace AND relkind = 'r' AND relname NOT IN ('user', 'holding', 'transaction')
     """)).all()
-    assert protection == [(True, False, False)] * 9
+    assert protection == [(True, False, False)] * 10
 assert legacy_snapshot(engine) == snapshot
 '''], cwd=BACKEND, env=dict(os.environ, DATABASE_URL=os.environ['FINREVIEW_TEST_POSTGRES_URL']),
         capture_output=True, text=True, timeout=60,

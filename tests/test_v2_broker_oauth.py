@@ -13,6 +13,7 @@ from intelligence.broker_oauth import (
     BrokerAuthError, BrokerAuthAttempt, begin, claim_state, exchange_code, complete
 )
 from intelligence.credential_vault import status, read_trusted
+from intelligence import fyers_session as flow
 
 @pytest.fixture
 def db(monkeypatch):
@@ -128,3 +129,33 @@ async def test_invalid_broker_exchange_payload_is_a_controlled_error(db, broker,
         httpx.Response(200, json=payload))) as client:
         with pytest.raises(BrokerAuthError):
             await exchange_code(broker, "temporary-code", client=client)
+
+
+def test_fyers_session_isolation_and_cancel(db, monkeypatch):
+    from main import _issue_token
+
+    monkeypatch.setenv("AUTH_SECRET_KEY", "fixture-session-secret-at-least-32-bytes")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
+    auth = "Bearer " + _issue_token(1)
+    other_session = "Bearer " + _issue_token(1)
+    assert auth != other_session
+    state = parse_qs(urlparse(flow.begin(db, 1, auth)["authorization_url"]).query)["state"][0]
+    claim = flow.claim(db, state)
+    future = datetime.now(timezone.utc) + timedelta(hours=1)
+    with pytest.raises(BrokerAuthError):
+        flow.claim(db, state)
+    flow.finish(db, claim, {"access_token": "fixture"}, future)
+    assert flow.read(db, 1, auth)["access_token"] == "fixture"
+    assert flow.status(db, 1, other_session)["connections"] == []
+    assert flow.status(db, 2, auth)["connections"] == []
+    flow.disconnect(db, 1, other_session)
+    assert flow.read(db, 1, auth)["access_token"] == "fixture"
+    flow.disconnect(db, 1, auth)
+    with pytest.raises(BrokerAuthError):
+        flow.read(db, 1, auth)
+
+    state = parse_qs(urlparse(flow.begin(db, 1, auth)["authorization_url"]).query)["state"][0]
+    claim = flow.claim(db, state)
+    flow.disconnect(db, 1, auth)
+    with pytest.raises(BrokerAuthError):
+        flow.finish(db, claim, {"access_token": "fixture"}, future)

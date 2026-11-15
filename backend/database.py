@@ -56,10 +56,11 @@ def init_db():
     from intelligence.provider_preferences import BrokerPreference
     from intelligence.credential_vault import BrokerConnection
     from intelligence.broker_oauth import BrokerAuthAttempt
+    from intelligence.fyers_session import FyersSession
     v2_tables = [
         model.__table__ for model in (
             StrategySignal, SignalEvent, PaperAccount, PaperTrade, NotificationDelivery,
-            CachedCandle, BrokerPreference, BrokerConnection, BrokerAuthAttempt,
+            CachedCandle, BrokerPreference, BrokerConnection, BrokerAuthAttempt, FyersSession,
         )
     ]
     with engine.begin() as connection:

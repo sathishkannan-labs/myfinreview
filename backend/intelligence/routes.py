@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models.portable_models import User
 from .models import StrategySignal, PaperAccount, PaperTrade
+from . import fyers_session
 from .service import (
     create_signal, list_signals, get_signal, transition, create_paper_account
 )
@@ -214,16 +215,31 @@ def set_broker_preference(request: BrokerSelection, user: User = Depends(current
 # OAuth handoff and all secret-accepting public routes remain disabled.
 @router.get("/market/connections")
 def broker_connection_status(user: User = Depends(current_user),
-                             session: Session = Depends(get_session)):
+                             session: Session = Depends(get_session),
+                             authorization: Optional[str] = Header(None)):
+    if fyers_session.enabled():
+        return fyers_session.status(session, user.id, authorization)
     from .credential_vault import status
     return status(session, user.id)
 
 @router.delete("/market/connections/{provider}")
 def disconnect_broker(provider: Literal["fyers", "upstox", "zerodha"],
                       user: User = Depends(current_user),
-                      session: Session = Depends(get_session)):
+                      session: Session = Depends(get_session),
+                      authorization: Optional[str] = Header(None)):
+    if provider == "fyers" and fyers_session.enabled():
+        fyers_session.disconnect(session, user.id, authorization)
+        return {"provider": provider, "local_credentials_deleted": True, "upstream_revocation": "NOT_PERFORMED"}
     from .credential_vault import disconnect
     return disconnect(session, user.id, provider)
+
+
+@router.delete("/market/fyers/session")
+def close_fyers_session(user: User = Depends(current_user),
+                        session: Session = Depends(get_session),
+                        authorization: Optional[str] = Header(None)):
+    fyers_session.disconnect(session, user.id, authorization)
+    return {"local_credentials_deleted": True}
 
 
 # FYERS individual application is restricted to its creator. The one permitted
@@ -240,6 +256,8 @@ def _fyers_staging_owner(user_id=None):
 @router.get("/market/fyers/test-availability")
 def fyers_test_availability(user: User = Depends(current_user)):
     """Nonsecret user-scoped FYERS staging capability, not an entitlement claim."""
+    if fyers_session.enabled():
+        return {"available": True, "mode": "THIRD_PARTY_SESSION", "live_validated": False}
     return {"available":_fyers_staging_owner(user.id),
             "mode":"PERSONAL_STAGING_ONLY", "live_validated":False}
 
@@ -247,8 +265,16 @@ def fyers_test_availability(user: User = Depends(current_user)):
 @router.post("/market/oauth/{provider}/start")
 def start_broker_authorization(provider: Literal["fyers", "upstox", "zerodha"],
                                user: User = Depends(current_user),
-                               session: Session = Depends(get_session)):
+                               session: Session = Depends(get_session),
+                               authorization: Optional[str] = Header(None)):
     from .broker_oauth import begin, BrokerAuthError
+    from sqlalchemy.exc import SQLAlchemyError
+    if provider == "fyers" and fyers_session.enabled():
+        try:
+            return fyers_session.begin(session, user.id, authorization)
+        except (BrokerAuthError, RuntimeError, SQLAlchemyError):
+            session.rollback()
+            raise HTTPException(409, "FYERS connection unavailable. Sign in again or disconnect a pending connection.") from None
     if provider!="fyers" or not _fyers_staging_owner(user.id):
         raise HTTPException(403, "Broker login unavailable for this staging account")
     try:
@@ -280,7 +306,8 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
               "<h1>FinReview FYERS test</h1><p>"+message+"</p>"
               "<p>Close this page and return to FinReview Research Lab to check status.</p>"
               "</body></html>",headers=headers)
-    if provider!="fyers" or not _fyers_staging_owner():
+    third_party = fyers_session.enabled()
+    if provider!="fyers" or not (third_party or _fyers_staging_owner()):
         raise HTTPException(403, "Broker authentication disabled")
     params=request.query_params
     state=params.get("state")
@@ -291,6 +318,19 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
     from .broker_oauth import claim_state, exchange_code, store_oauth_credentials
     from .broker_token_expiry import conservative_expiry
     from datetime import datetime, timezone
+    from fastapi.responses import RedirectResponse
+    from sqlalchemy.exc import SQLAlchemyError
+    if third_party:
+        try:
+            target = fyers_session.return_url()
+            digest = fyers_session.claim(session, state)
+            credentials = await exchange_code("fyers", code)
+            expiry = conservative_expiry("fyers", datetime.now(timezone.utc))
+            fyers_session.finish(session, digest, credentials, expiry)
+            return RedirectResponse(target, status_code=303, headers=headers)
+        except (BrokerAuthError, RuntimeError, SQLAlchemyError):
+            session.rollback()
+            return page("Authorization was unsuccessful or expired. Return to Research Lab and try again.")
     try:
         user_id=claim_state(session,"fyers",state)
         if not _fyers_staging_owner(user_id):
@@ -300,7 +340,6 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
         store_oauth_credentials(session, user_id, "fyers", credentials, expires_at=expiry)
         # Redirect only to the fixed, operator-controlled staging UI.
         # Never forward request parameters, auth_code, state or broker tokens.
-        from fastapi.responses import RedirectResponse
         return RedirectResponse(
             url="https://finreview-v201-staging-ui.onrender.com/intelligence.html#fyersConnectionPanel",
             status_code=303,
@@ -319,7 +358,7 @@ async def fyers_personal_symbols(
     import os
     from fastapi.responses import JSONResponse
     from .fyers_symbols import search_symbols
-    if (not _fyers_staging_owner(user.id) or
+    if not fyers_session.enabled() and (not _fyers_staging_owner(user.id) or
         os.getenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","false").lower()!="true"):
         raise HTTPException(403, "Personal symbol search unavailable")
     if len(q.strip()) < 2 or len(q) > 64:
@@ -338,6 +377,7 @@ async def fyers_personal_research(
     instrument: str,
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
+    authorization: Optional[str] = Header(None),
 ):
     """Owner-only personal broker research; no shared app or trading access."""
     import os
@@ -346,11 +386,15 @@ async def fyers_personal_research(
     from fastapi.responses import JSONResponse
     from .broker_research import research_from_fyers
     from .market_data import MarketDataError
-    if (not _fyers_staging_owner(user.id) or
+    if not fyers_session.enabled() and (not _fyers_staging_owner(user.id) or
         os.getenv("FINREVIEW_V2_BROKER_PROBES_ENABLED","false").lower()!="true"):
         raise HTTPException(403, "Personal broker research unavailable")
     try:
-        data=await research_from_fyers(session,user.id,instrument)
+        if fyers_session.enabled():
+            credentials = fyers_session.read(session, user.id, authorization)
+            data = await research_from_fyers(session, user.id, instrument, credentials=credentials)
+        else:
+            data = await research_from_fyers(session,user.id,instrument)
         return JSONResponse(data,headers={"Cache-Control":"no-store, private",
                                            "Pragma":"no-cache",
                                            "Referrer-Policy":"no-referrer"})

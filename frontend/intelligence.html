@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FinReview v2.0.1 — Research Lab</title>
+<title>FinReview v2.0.2 — Research Lab</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>body{background:#f5f7fb;color:#172435} .card{border:1px solid #e5e9f0;border-radius:14px} .subtle{color:#667085} td{vertical-align:middle}
   :root{--lab-ink:#13233b;--lab-accent:#175bca;--lab-soft:#eaf1ff}
@@ -51,7 +51,7 @@
   <a class="navbar-brand" href="./index.html">FinReview</a>
   <div class="d-flex align-items-center flex-wrap gap-3">
    <a class="nav-link" href="./index.html">Dashboard &amp; Portfolio</a>
-   <a class="nav-link active" aria-current="page" href="./intelligence.html">Research Lab <span class="badge bg-primary">v2.0.1</span></a>
+   <a class="nav-link active" aria-current="page" href="./intelligence.html">Research Lab <span class="badge bg-primary">v2.0.2</span></a>
   </div>
  </div>
 </nav>
@@ -70,7 +70,7 @@
 <section class="card lab-card p-4 mb-3" id="liveBrokerResearch" hidden aria-labelledby="liveBrokerResearchTitle">
  <div class="lab-chip mb-2">Personal FYERS connection · read-only</div>
  <h2 id="liveBrokerResearchTitle" class="h4 fw-bold">Research actual FYERS historical data</h2>
- <p class="lab-secondary">Uses the encrypted FYERS connection already stored for your allowlisted staging account. Pick a supported equity and run 20/50-day moving-average and 20-bar breakout checks on completed daily candles. A separate quote snapshot is displayed when available; it is <strong>not</strong> treated as a completed daily close or a verified real-time exchange feed.</p>
+ <p class="lab-secondary">Connect your own FYERS account to use historical market data. Pick a supported equity and run 20/50-day moving-average and 20-bar breakout checks on completed daily candles. A separate quote snapshot is displayed when available; it is <strong>not</strong> treated as a completed daily close or a verified real-time exchange feed.</p>
  <div class="row g-2 align-items-end">
   <div class="col-md-7"><label for="fyersResearchSymbol" class="form-label">Find an NSE-listed equity</label>
    <input type="search" class="form-control" id="fyersResearchSymbol"
@@ -85,7 +85,7 @@
  </div>
  <p class="lab-note mt-3 mb-0" id="fyersResearchStatus" role="status">Checking personal broker session…</p>
  <button class="btn btn-link btn-sm px-0 mt-2" id="openFyersConnection" type="button">Manage FYERS connection</button>
- <div class="lab-secondary small mt-2">For your personal non-trading FYERS app only. No auto-refresh, streaming or public quote redistribution; data may require reauthorization each day. Community users can use CSV research without a broker account.</div>
+ <div class="lab-secondary small mt-2">Read-only FYERS research. No auto-refresh, streaming or public quote redistribution. You may need to reconnect each day. Community users can use CSV research without a broker account.</div>
 </section>
 <section class="card lab-card p-4 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
 <div class="lab-chip mb-2">No broker account required</div>
@@ -124,12 +124,12 @@
  </details>
  <div class="lab-note mt-3">These are deterministic historical observations, <strong>not buy/sell signals</strong>. They are not added to the signal register or paper account. Prices, splits/dividends, exchange holidays, and data rights have not been independently verified.</div>
 </section>
-<details id="labOptional" class="card lab-card p-4 mb-3" hidden><summary>Personal staging diagnostics <span class="lab-secondary fw-normal">· Maintainer only</span></summary>
-<div class="lab-note mb-3">The following interfaces are development foundations, not end-to-end broker trading features. FYERS individual-app login can be enabled only for an allowlisted staging account. Licensed quotes, automated signals and order simulation are not active in the Community preview.</div>
+<details id="labOptional" class="card lab-card p-4 mb-3" hidden><summary><span id="fyersConnectionTitle">Personal staging diagnostics</span></summary>
+<div class="lab-note mb-3" id="fyersStagingNote">The following interfaces are development foundations, not end-to-end broker trading features. FYERS individual-app login can be enabled only for an allowlisted staging account. Licensed quotes, automated signals and order simulation are not active in the Community preview.</div>
 <section class="card p-3 mb-3" id="fyersConnectionPanel">
- <h4 class="h5 fw-bold">FYERS personal app — private staging connection</h4>
- <p class="lab-secondary">For the FYERS individual app creator only. Login happens on FYERS, never in FinReview. No order placement.</p>
- <div id="fyersConnectStatus" role="status" class="lab-note mb-3">Checking whether your FinReview staging account is approved for FYERS testing…</div>
+ <h4 class="h5 fw-bold">Connect FYERS</h4>
+ <p class="lab-secondary">Sign in directly on FYERS. FinReview uses your connection for read-only research.</p>
+ <div id="fyersConnectStatus" role="status" class="lab-note mb-3">Checking FYERS connection availability…</div>
  <div class="d-flex gap-2 flex-wrap">
   <button type="button" class="btn btn-primary" id="connectFyers" disabled>Connect FYERS</button>
   <button type="button" class="btn btn-outline-secondary" id="refreshFyersStatus">Refresh connection status</button>
@@ -138,7 +138,7 @@
   <button type="button" class="btn btn-outline-danger" id="disconnectFyers" disabled>Disconnect locally</button>
  </div>
  <div id="fyersDataResult" class="small lab-note mt-3" role="status">Optional diagnostic check has not been run on this page load. An analysis report can independently verify historical-data retrieval.</div>
- <p class="lab-secondary small mt-2 mb-0">The test requests one read-only INFY daily-candle sample and one quote. It does not store or redistribute market prices. Reauthorize if your daily FYERS token has expired.</p>
+ <p class="lab-secondary small mt-2 mb-0" id="fyersProbeNote">The test requests one read-only INFY daily-candle sample and one quote. It does not store or redistribute market prices. Reauthorize if your daily FYERS token has expired.</p>
 </section>
 <details id="labLegacyDiagnostics" class="mt-3"><summary class="lab-secondary fw-semibold">Incomplete operator signals and paper-ledger internals</summary>
 <div class="row g-3 mb-3 mt-2">
@@ -419,7 +419,7 @@ async function refreshFyersConnection(){
  const disconnect=document.querySelector('#disconnectFyers');
  connect.disabled=true;probe.disabled=true;dataButton.disabled=true;disconnect.disabled=true;
  setFyersSessionDeadline(0);
- if(!token){label.textContent='Log in to your FinReview staging account first.';return;}
+ if(!token){label.textContent='Log in to FinReview first.';return;}
  try{
   const [cap,stat]=await Promise.all([
    api('/v2/market/fyers/test-availability'),api('/v2/market/connections')
@@ -428,6 +428,13 @@ async function refreshFyersConnection(){
   // Diagnostics are visible only to the staging account allowlisted by the backend.
   const diagnostics=document.querySelector('#labOptional');
   diagnostics.hidden=!fyersTestAvailable;
+  const userSession=cap.mode==='THIRD_PARTY_SESSION';
+  document.querySelector('#fyersConnectionTitle').textContent=userSession?'Your FYERS connection':'Personal staging diagnostics';
+  document.querySelector('#labLegacyDiagnostics').hidden=userSession;
+  document.querySelector('#fyersStagingNote').hidden=userSession;
+  document.querySelector('#fyersProbeNote').hidden=userSession;
+  document.querySelector('#probeFyersProfile').hidden=userSession;
+  document.querySelector('#probeFyersData').hidden=userSession;
   const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
   const required=['historical','quotes'].map(purpose=>records.find(item=>item.purpose===purpose&&item.state==='STORED_UNVERIFIED'));
   const deadline=required.every(Boolean)?Math.min(...required.map(item=>item.expires_at?Date.parse(item.expires_at):Infinity)):0;
@@ -436,7 +443,7 @@ async function refreshFyersConnection(){
   document.querySelector('#liveBrokerResearch').hidden=!fyersTestAvailable;
   document.querySelector('#fyersResearchStatus').textContent=connected?
     'FYERS connection available. Choose an equity to run historical research.':
-    'FYERS session missing or expired. Reconnect from Personal staging diagnostics to use broker data.';
+    'FYERS session missing or expired. Connect FYERS to use broker data.';
   const expired=records.length>0&&!connected;
   if(!fyersTestAvailable){
    label.textContent='Personal staging diagnostics unavailable for this account.';
@@ -448,11 +455,11 @@ async function refreshFyersConnection(){
   connect.disabled=false;
   probe.disabled=!connected;
   dataButton.disabled=!connected;
-  disconnect.disabled=records.length===0;
+  disconnect.disabled=!userSession&&records.length===0;
   label.textContent=connected?
    'FYERS connection stored. Historical data access is checked when you run research; use diagnostics only if troubleshooting.':
    expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
-   'FYERS staging login is available. Select Connect FYERS to authenticate on the official FYERS page.';
+   'Select Connect FYERS to sign in on the official FYERS page.';
  }catch(e){
   label.textContent='FYERS connection status unavailable. '+e.message;
  document.querySelector('#liveBrokerResearch').hidden=true;

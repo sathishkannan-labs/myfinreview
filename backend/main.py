@@ -172,9 +172,10 @@ def _auth_secret() -> bytes:
 
 def _issue_token(user_id: int) -> str:
     timestamp = str(int(datetime.now(timezone.utc).timestamp()))
-    payload = f"{user_id}:{timestamp}"
+    import secrets
+    payload = f"{user_id}:{timestamp}:{secrets.token_urlsafe(18)}"
     signature = hmac.new(_auth_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
-    return f"frv1:{payload}:{signature}"
+    return f"frv2:{payload}:{signature}"
 
 
 def _verify_token(authorization: Optional[str], session: Session) -> User:
@@ -183,11 +184,12 @@ def _verify_token(authorization: Optional[str], session: Session) -> User:
 
     token = authorization.removeprefix("Bearer ").strip()
     parts = token.split(":")
-    if len(parts) != 4 or parts[0] != "frv1":
+    if (len(parts), parts[0]) not in {(4, "frv1"), (5, "frv2")}:
         raise HTTPException(status_code=401, detail="Invalid bearer token")
 
-    _, user_id_raw, timestamp, signature = parts
-    payload = f"{user_id_raw}:{timestamp}"
+    user_id_raw, timestamp = parts[1:3]
+    signature = parts[-1]
+    payload = ":".join(parts[1:-1])
     expected = hmac.new(_auth_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected):
         raise HTTPException(status_code=401, detail="Invalid bearer token")
