@@ -14,8 +14,9 @@ def test_research_link_visible_in_main_navigation_and_dashboard():
 
 def test_v2_status_is_visible_and_does_not_claim_live_trading():
     assert "v2.0.1 Preview" in HOME
-    assert "Broker login and live quotes are disabled" in HOME
-    assert "No real orders" in HOME
+    assert "Analyze historical prices from a CSV, or try a sample report." in HOME
+    assert "Explore research signals, paper-account observations" not in HOME
+    assert "No live orders are available" in RESEARCH
     assert "FinReview v2.0.1 — Research Lab" in RESEARCH
     assert "FYERS individual-app login can be enabled only" in RESEARCH
 
@@ -186,4 +187,64 @@ updateFyersResearchButton();
 assert.equal(button.disabled,true);
 """
     result = subprocess.run([node, "-e", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_research_report_summary_and_details_order():
+    assert RESEARCH.index('id="labOverview"') < RESEARCH.index('id="reportAnalysisDetails"')
+    assert "What the data shows" in RESEARCH
+    assert "SYNTHETIC SAMPLE" in RESEARCH
+    assert "date(data.first_timestamp)+' to '+date(data.last_timestamp)" in RESEARCH
+    assert "window.addEventListener('beforeprint'" in RESEARCH
+    assert "window.addEventListener('afterprint'" in RESEARCH
+
+
+def test_dashboard_refresh_reports_partial_results_without_false_success():
+    import shutil
+    import subprocess
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js unavailable")
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text()
+    refresh = app[:app.index("function updateRefreshUI")]
+    script = refresh + """
+const assert = require('node:assert/strict');
+const localStorage = {getItem: key => key === 'finreview_user_id' ? '1' : null};
+const button = {};
+const document = {getElementById: () => button};
+const CONFIG = {API_URL:''};
+const AUTH_TOKEN = 'fixture';
+let statuses, payload, toasts, calls, loading;
+const showToast = (message, type) => toasts.push([message, type]);
+const toggleLoading = value => loading = value;
+const updateRefreshUI = () => {};
+const fetchPortfolioSummary = async () => {};
+const fetch = async path => {
+    calls.push(path);
+    const status = statuses.shift();
+    if (status === 0) throw Error('network failure');
+    return {status, ok: status >= 200 && status < 300, json: async () => payload};
+};
+async function run(responses, type, match, requests, items = []) {
+    statuses = responses; payload = items; toasts = []; calls = [];
+    await refreshAllIntelligence();
+    assert.equal(calls.length, requests);
+    assert.equal(toasts.length, 1);
+    assert.equal(toasts[0][1], type);
+    assert.match(toasts[0][0], match);
+    assert.equal(loading, false);
+    assert.equal(button.disabled, false);
+}
+(async () => {
+    await run([500], 'danger', /valuation could not/, 1);
+    await run([401], 'warning', /session expired/i, 1);
+    await run([200, 429, 0], 'warning', /cooldown.*Alert check unavailable/, 3);
+    await run([200, 200, 200], 'warning', /Briefing could not be refreshed/, 3);
+    await run([200, 200, 200], 'success', /Briefing refreshed.*Alerts checked/, 3,
+              [{type:'PORTFOLIO_BRIEFING'}]);
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+    result = subprocess.run([node, "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

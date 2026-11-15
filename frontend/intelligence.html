@@ -113,13 +113,15 @@
 </section>
 <section id="labReport" class="card lab-card p-4 mb-3 lab-hidden" aria-labelledby="labReportHeading">
  <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-3">
-  <div><h3 id="labReportHeading" class="h5 fw-bold mb-1">Your historical research report</h3><div class="lab-secondary" id="reportFileName"></div></div>
+  <h3 id="labReportHeading" class="h5 fw-bold mb-1">Your historical research report</h3>
   <div class="d-flex gap-2 flex-wrap"><button class="btn btn-outline-primary btn-sm" id="printResearchReport" type="button">Print report</button><button class="btn btn-outline-secondary btn-sm" id="downloadResearchReport" type="button">Download JSON</button></div>
  </div>
  <div id="labOverview" class="lab-summary mb-3" role="status"></div>
  <div class="row g-2 mb-3" id="labMetrics"></div>
- <h4 class="h6 fw-bold mb-2">Strategy observations</h4>
- <div id="strategyResearchResults" class="row g-3" aria-live="polite"></div>
+ <details id="reportAnalysisDetails">
+  <summary class="fw-semibold">Analysis details</summary>
+  <div id="strategyResearchResults" class="row g-3 mt-1" aria-live="polite"></div>
+ </details>
  <div class="lab-note mt-3">These are deterministic historical observations, <strong>not buy/sell signals</strong>. They are not added to the signal register or paper account. Prices, splits/dividends, exchange holidays, and data rights have not been independently verified.</div>
 </section>
 <details id="labOptional" class="card lab-card p-4 mb-3" hidden><summary>Personal staging diagnostics <span class="lab-secondary fw-normal">· Maintainer only</span></summary>
@@ -196,6 +198,15 @@ async function refresh(){
 let lastReport=null;
 document.querySelector('#printResearchReport').addEventListener('click',()=>{
  if(lastReport)window.print();
+});
+const reportAnalysisDetails=document.querySelector('#reportAnalysisDetails');
+let analysisWasOpen=false;
+window.addEventListener('beforeprint',()=>{
+ analysisWasOpen=reportAnalysisDetails.open;
+ reportAnalysisDetails.open=true;
+});
+window.addEventListener('afterprint',()=>{
+ reportAnalysisDetails.open=analysisWasOpen;
 });
 document.querySelector('#downloadResearchReport').addEventListener('click',()=>{
  if(!lastReport)return;
@@ -275,7 +286,7 @@ function renderResearchReport(data,notice,sourceMeta){
    const overview=document.querySelector('#labOverview');
    overview.replaceChildren();
    const heading=document.createElement('h3');
-   heading.textContent='Analysis at a glance';
+   heading.textContent='What the data shows';
    overview.appendChild(heading);
    const breakout=data.strategies?.breakout?.observation;
    const trend=data.strategies?.sma_trend?.observation;
@@ -291,8 +302,10 @@ function renderResearchReport(data,notice,sourceMeta){
    const asof=new Date(data.last_timestamp);
    const ageDays=Number.isNaN(asof.getTime())?null:Math.floor((Date.now()-asof.getTime())/86400000);
    const quality=document.createElement('div');quality.className='lab-secondary small';
-   quality.textContent='Source: '+(sourceMeta.provider==='fyers'?'FYERS personal OAuth session (read-only, no public redistribution)':sourceMeta.synthetic?'Synthetic demonstration (not tradable prices)':'User-supplied CSV (independently unverified)')+
-     ' · Last candle: '+date(data.last_timestamp)+
+   const sourceLabel=sourceMeta.provider==='fyers'?'FYERS · PERSONAL USE ONLY':
+     sourceMeta.synthetic?'SYNTHETIC SAMPLE':'User-supplied CSV · Independently unverified';
+   quality.textContent=sourceLabel+' · '+sourceMeta.label+
+     ' · '+date(data.first_timestamp)+' to '+date(data.last_timestamp)+
      (ageDays!==null&&ageDays>7?' · Historical data is over 7 days old.':'')+
      ' · No market-data rights or corporate-action adjustments certified.';
    overview.appendChild(quality);
@@ -311,7 +324,7 @@ function renderResearchReport(data,notice,sourceMeta){
    const synthetic=sourceMeta.synthetic;
    const sampleWarning=sourceMeta.provider==='fyers'?' FYERS data is unadjusted and exchange timestamps are not verified.':synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
    notice.textContent='Research report generated. Source and limitations shown below.'+sampleWarning;
-   document.querySelector('#reportFileName').textContent=(sourceMeta.provider==='fyers'?'Broker instrument: ':'Data source: ')+sourceMeta.label+' · '+data.rows+' historical daily candles'+(synthetic?' · SYNTHETIC SAMPLE':'')+(sourceMeta.provider==='fyers'?' · PERSONAL USE ONLY':'');
+   document.querySelector('#reportAnalysisDetails').open=false;
    const metrics=document.querySelector('#labMetrics');metrics.replaceChildren();
    for(const [heading,value] of [
       ['Candles validated',String(data.rows)],
