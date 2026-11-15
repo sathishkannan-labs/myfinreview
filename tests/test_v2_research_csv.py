@@ -60,5 +60,5 @@ async def test_research_route_is_read_only_and_rejects_oversized():
 def test_research_ui_discoverable_and_broker_optional():
     html=(Path(__file__).resolve().parents[1]/"frontend/intelligence.html").read_text()
     for phrase in ("id=\"researchCsvForm\"","/v2/market/csv/research",
-                   "id=\"initializePaperAccount\"","no broker required"):
+                   "id=\"initializePaperAccount\"","No broker account required"):
         assert phrase.lower() in html.lower()
