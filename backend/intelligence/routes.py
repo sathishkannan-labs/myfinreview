@@ -331,10 +331,10 @@ async def fyers_personal_research(
         return JSONResponse(data,headers={"Cache-Control":"no-store, private",
                                            "Pragma":"no-cache",
                                            "Referrer-Policy":"no-referrer"})
-    except ValueError:
-        raise HTTPException(409,"Your FYERS session is unavailable or expired. Reconnect and retry.")
     except MarketDataError:
         raise HTTPException(422,"FYERS returned invalid or unsupported historical data.")
+    except ValueError:
+        raise HTTPException(409,"Your FYERS session is unavailable or expired. Reconnect and retry.")
     except Exception:
         # Never reflect upstream URLs, account credentials, auth tokens or data.
         raise HTTPException(503,"FYERS research data temporarily unavailable")
