@@ -69,9 +69,11 @@
   <button type="button" class="btn btn-primary" id="connectFyers" disabled>Connect FYERS</button>
   <button type="button" class="btn btn-outline-secondary" id="refreshFyersStatus">Refresh connection status</button>
   <button type="button" class="btn btn-outline-primary" id="probeFyersProfile" disabled>Test read-only profile</button>
+  <button type="button" class="btn btn-outline-primary" id="probeFyersData" disabled>Verify FYERS candles + quote</button>
   <button type="button" class="btn btn-outline-danger" id="disconnectFyers" disabled>Disconnect locally</button>
  </div>
- <p class="lab-secondary small mt-2 mb-0">A saved broker preference is not a connection. OAuth sessions expire daily; successful login does not prove historical/quote data access.</p>
+ <div id="fyersDataResult" class="small lab-note mt-3" role="status">Live FYERS historical candles and quotes have not been tested in this session.</div>
+ <p class="lab-secondary small mt-2 mb-0">The test requests one read-only INFY daily-candle sample and one quote. It does not store or redistribute market prices. Reauthorize if your daily FYERS token has expired.</p>
 </section>
 <section class="card p-3 mb-3">
 <h4>Broker preferences (not a connection)</h4>
@@ -248,8 +250,9 @@ async function refreshFyersConnection(){
  const label=document.querySelector('#fyersConnectStatus');
  const connect=document.querySelector('#connectFyers');
  const probe=document.querySelector('#probeFyersProfile');
+ const dataButton=document.querySelector('#probeFyersData');
  const disconnect=document.querySelector('#disconnectFyers');
- connect.disabled=true;probe.disabled=true;disconnect.disabled=true;
+ connect.disabled=true;probe.disabled=true;dataButton.disabled=true;disconnect.disabled=true;
  if(!token){label.textContent='Log in to your FinReview staging account first.';return;}
  try{
   const [cap,stat]=await Promise.all([
@@ -265,6 +268,7 @@ async function refreshFyersConnection(){
   }
   connect.disabled=false;
   probe.disabled=!connected;
+  dataButton.disabled=!connected;
   disconnect.disabled=records.length===0;
   label.textContent=connected?
    'FYERS token encrypted and stored, but market-data permissions have not been checked. Use Test read-only profile.':
@@ -304,6 +308,26 @@ document.querySelector('#probeFyersProfile').addEventListener('click',async()=>{
    'Profile could not be authenticated.';
  }catch(e){label.textContent=e.message;}
  finally{b.disabled=false;}
+});
+document.querySelector('#probeFyersData').addEventListener('click',async()=>{
+ const label=document.querySelector('#fyersDataResult');
+ const btn=document.querySelector('#probeFyersData');
+ if(!token||!fyersTestAvailable)return;
+ btn.disabled=true;label.textContent='Checking one FYERS equity sample: profile, completed daily candles and quote…';
+ try{
+  const r=await fetch(CONFIG.API_URL+'/v2/market/fyers/test-data',{
+   method:'POST',headers:{Authorization:'Bearer '+token}
+  });
+  const result=await r.json();
+  if(!r.ok)throw Error('Read-only market check unavailable (HTTP '+r.status+'). Reconnect FYERS if the daily session expired.');
+  const complete=result.profile==='AUTHENTICATED'&&result.history==='VERIFIED_SAMPLE'&&result.quotes==='VERIFIED_SAMPLE';
+  label.textContent=(complete?'Read-only sample checks succeeded. ':'Market-data verification is incomplete. ')+
+    'Profile: '+result.profile+' · Daily candles: '+result.history+
+    ' ('+result.history_bars+' bars, '+result.history_start+' to '+result.history_end+
+    ') · Quotes: '+result.quotes+
+    '. Exchange timestamps, permissions and redistribution rights are not certified.';
+ }catch(e){label.textContent=e.message;}
+ finally{btn.disabled=false;}
 });
 document.querySelector('#disconnectFyers').addEventListener('click',async()=>{
  const label=document.querySelector('#fyersConnectStatus');
