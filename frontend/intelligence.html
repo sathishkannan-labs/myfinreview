@@ -62,6 +62,7 @@
   <div class="col-md-5"><button class="btn btn-primary w-100" id="runFyersResearch" type="button" disabled>Analyze FYERS historical data</button></div>
  </div>
  <p class="lab-note mt-3 mb-0" id="fyersResearchStatus" role="status">Checking personal broker session…</p>
+ <button class="btn btn-link btn-sm px-0 mt-2" id="openFyersConnection" type="button">Manage FYERS connection</button>
  <div class="lab-secondary small mt-2">For your personal non-trading FYERS app only. No auto-refresh, streaming or public quote redistribution; data may require reauthorization each day. Community users can use CSV research without a broker account.</div>
 </section>
 <section class="card lab-card p-4 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
@@ -392,11 +393,19 @@ document.querySelector('#connectFyers').addEventListener('click',async()=>{
   window.location.assign(u.href);
  }catch(e){label.textContent='Unable to start FYERS login: '+e.message;button.disabled=false;}
 });
+document.querySelector('#openFyersConnection').addEventListener('click',()=>{
+ const detail=document.querySelector('#labOptional');
+ if(detail.hidden)return;
+ detail.open=true;
+ document.querySelector('#fyersConnectionPanel').scrollIntoView({behavior:'smooth',block:'start'});
+});
 document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
  const button=document.querySelector('#runFyersResearch');
  const notice=document.querySelector('#fyersResearchStatus');
  if(!token||!fyersTestAvailable)return;
  button.disabled=true;
+ document.querySelector('#labReport').classList.add('lab-hidden');
+ lastReport=null;
  notice.textContent='Fetching FYERS daily candles and quote with your encrypted broker session…';
  try{
   const symbol=document.querySelector('#fyersResearchSymbol').value;
