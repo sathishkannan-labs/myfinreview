@@ -25,10 +25,10 @@ def parse_master(payload):
         if not isinstance(symbol,str) or not TICKER.fullmatch(symbol) or not isinstance(entry,dict):
             continue
         # Nontrading master is for discovery, not market-data entitlement.
-        if str(entry.get("tradeStatus","1")) in ("0","false","False"):
+        if entry.get("tradeStatus") not in (1,"1",True):
             continue
         display=""
-        for field in ("description","name","symbolDesc","shortName","fullName","symbolDescription"):
+        for field in ("symDetails","symbolDesc","exSymName","exSymbol","description","name","shortName","fullName","symbolDescription"):
             v=entry.get(field)
             if isinstance(v,str) and v.strip():
                 display=v.strip()[:110]
