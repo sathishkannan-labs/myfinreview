@@ -48,6 +48,22 @@
  <div class="col-md-4"><div class="lab-step"><span class="step-count">3</span><strong>Interpret</strong><div class="lab-secondary mt-2">See evidence, as-of date and limitations. No trade execution.</div></div></div>
 </div>
 <div id="notice" role="status" class="lab-note mb-3">Checking your FinReview login…</div>
+<section class="card lab-card p-4 mb-3" id="liveBrokerResearch" hidden aria-labelledby="liveBrokerResearchTitle">
+ <div class="lab-chip mb-2">Personal FYERS connection · read-only</div>
+ <h2 id="liveBrokerResearchTitle" class="h4 fw-bold">Research actual FYERS historical data</h2>
+ <p class="lab-secondary">Uses the encrypted FYERS connection already stored for your allowlisted staging account. Pick a supported equity and run 20/50-day moving-average and 20-bar breakout checks on completed daily candles. A separate quote snapshot is displayed when available; it is <strong>not</strong> treated as a completed daily close or a verified real-time exchange feed.</p>
+ <div class="row g-2 align-items-end">
+  <div class="col-md-7"><label for="fyersResearchSymbol" class="form-label">Equity</label>
+  <select class="form-select" id="fyersResearchSymbol">
+   <option value="NSE:INFY-EQ">Infosys (NSE)</option>
+   <option value="NSE:RELIANCE-EQ">Reliance Industries (NSE)</option>
+   <option value="NSE:HDFCBANK-EQ">HDFC Bank (NSE)</option>
+  </select></div>
+  <div class="col-md-5"><button class="btn btn-primary w-100" id="runFyersResearch" type="button" disabled>Analyze FYERS historical data</button></div>
+ </div>
+ <p class="lab-note mt-3 mb-0" id="fyersResearchStatus" role="status">Checking personal broker session…</p>
+ <div class="lab-secondary small mt-2">For your personal non-trading FYERS app only. No auto-refresh, streaming or public quote redistribution; data may require reauthorization each day. Community users can use CSV research without a broker account.</div>
+</section>
 <section class="card lab-card p-4 mb-3" id="csvResearch" aria-labelledby="csvResearchTitle">
 <div class="lab-chip mb-2">No broker account required</div>
 <h2 class="h4 fw-bold mb-2" id="csvResearchTitle">Start a historical research report</h2>
@@ -97,22 +113,6 @@
  </div>
  <div id="fyersDataResult" class="small lab-note mt-3" role="status">Live FYERS historical candles and quotes have not been tested in this session.</div>
  <p class="lab-secondary small mt-2 mb-0">The test requests one read-only INFY daily-candle sample and one quote. It does not store or redistribute market prices. Reauthorize if your daily FYERS token has expired.</p>
-</section>
-<section class="card p-3 mb-3">
-<h4>Broker preferences (not a connection)</h4>
-<p class="subtle small">Choose your own broker independently for historical candles and quotes. Saving preferences does not connect an account, grant market-data access or store API tokens.</p>
-<form id="providerForm" class="row g-2 align-items-end">
-<div class="col-md-4"><label for="historyProvider" class="form-label">Historical candles</label>
-<select class="form-select" id="historyProvider" required>
-<option value="" selected disabled>Select broker</option><option value="fyers">FYERS</option><option value="upstox">Upstox</option><option value="zerodha">Zerodha</option>
-</select></div>
-<div class="col-md-4"><label for="quoteProvider" class="form-label">Market quotes</label>
-<select class="form-select" id="quoteProvider" required>
-<option value="" selected disabled>Select broker</option><option value="fyers">FYERS</option><option value="upstox">Upstox</option><option value="zerodha">Zerodha</option>
-</select></div>
-<div class="col-md-4"><button class="btn btn-outline-primary w-100" type="submit">Save selection</button></div>
-</form>
-<div id="providerNotice" class="small subtle mt-2" role="status">No broker required. Zerodha live/historical data requires paid Kite Connect.</div>
 </section>
 <div class="row g-3 mb-3">
 <div class="col-md-4"><div class="card p-3"><div class="subtle">Active / Watching</div><h2 id="activeCount">—</h2></div></div>
@@ -329,6 +329,11 @@ async function refreshFyersConnection(){
   diagnostics.hidden=!fyersTestAvailable;
   const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
   const connected=records.some(item=>item.state==='STORED_UNVERIFIED');
+  document.querySelector('#liveBrokerResearch').hidden=!fyersTestAvailable;
+  document.querySelector('#runFyersResearch').disabled=!fyersTestAvailable||!connected;
+  document.querySelector('#fyersResearchStatus').textContent=connected?
+    'FYERS connection available. Choose an equity to run historical research.':
+    'FYERS session missing or expired. Reconnect from Personal staging diagnostics to use broker data.';
   const expired=records.length>0&&!connected;
   if(!fyersTestAvailable){
    label.textContent='Personal staging diagnostics unavailable for this account.';
@@ -411,37 +416,11 @@ document.querySelector('#disconnectFyers').addEventListener('click',async()=>{
   await refreshFyersConnection();
  }catch(e){label.textContent=e.message;}
 });
-async function loadProviderPreference(){
- if(!token)return;
- try {
-   const d=await api('/v2/market/preference');
-   if(d.historical_provider)document.querySelector('#historyProvider').value=d.historical_provider;
-   if(d.quotes_provider)document.querySelector('#quoteProvider').value=d.quotes_provider;
- } catch(err){
-   document.querySelector('#providerNotice').textContent='Broker settings unavailable: '+err.message;
- }
-}
-document.querySelector('#providerForm').addEventListener('submit',async event=>{
- event.preventDefault();
- const history=document.querySelector('#historyProvider').value;
- const quotes=document.querySelector('#quoteProvider').value;
- const notice=document.querySelector('#providerNotice');
- if(!token){notice.textContent='Please log in first.';return;}
- try{
-   const res=await fetch(CONFIG.API_URL+'/v2/market/preference',{
-     method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-     body:JSON.stringify({historical_provider:history,quotes_provider:quotes})
-   });
-   if(!res.ok)throw Error('API '+res.status);
-   notice.textContent='Broker preferences saved. Connect credentials privately in your own deployment. No API tokens were stored.';
- }catch(err){notice.textContent='Unable to save selection: '+err.message;}
-});
 // Open the FYERS tools when returning from the fixed OAuth callback.
 if(window.location.hash==='#fyersConnectionPanel'){
  document.querySelector('#labOptional').open=true;
  // Do not display the owner-only section until the backend confirms eligibility.
 }
-loadProviderPreference();
 refreshFyersConnection();
 refresh();
 </script></body></html>
