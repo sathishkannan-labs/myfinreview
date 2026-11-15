@@ -24,7 +24,14 @@ class FyersSession(SQLModel, table=True):
 
 
 def enabled():
-    return os.getenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "").lower() == "true"
+    """Multi-user FYERS mode requires BOTH operator activation and approval.
+
+    The approval flag is an operator attestation, not proof of FYERS consent.
+    Leave it false until FYERS has approved the third-party app, market-data
+    permissions and the intended user population.
+    """
+    return (os.getenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "").lower() == "true"
+            and os.getenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "").lower() == "true")
 
 
 def return_url():
@@ -53,6 +60,8 @@ def session_key(authorization):
 
 
 def begin(db: Session, user_id: int, authorization: str):
+    if not enabled():
+        raise BrokerAuthError("FYERS third-party integration is not approved and enabled")
     key = session_key(authorization)
     client_id, _, redirect = broker_settings("fyers")
     return_url()
@@ -77,7 +86,9 @@ def begin(db: Session, user_id: int, authorization: str):
 
 
 def claim(db: Session, state: str):
-    if not 20 <= len(state) <= 200:
+    if not enabled():
+        raise BrokerAuthError("FYERS third-party integration is not approved and enabled")
+    if not isinstance(state, str) or not 20 <= len(state) <= 200:
         raise BrokerAuthError("Invalid FYERS authorization")
     digest = _key(state)
     result = db.exec(update(FyersSession).where(
@@ -128,6 +139,8 @@ def status(db: Session, user_id: int, authorization: str | None):
 
 
 def read(db: Session, user_id: int, authorization: str | None):
+    if not enabled():
+        raise BrokerAuthError("FYERS third-party integration disabled")
     row = _find(db, user_id, authorization)
     if row is None or not row.encrypted_credentials or _utc_expiry(row.expires_at) <= datetime.now(timezone.utc):
         raise BrokerAuthError("FYERS connection expired or unavailable")

@@ -429,6 +429,7 @@ async function refreshFyersConnection(){
   const diagnostics=document.querySelector('#labOptional');
   diagnostics.hidden=!fyersTestAvailable;
   const userSession=cap.mode==='THIRD_PARTY_SESSION';
+  document.querySelector('#connectFyers').textContent=userSession?'Connect your FYERS account':'Connect FYERS';
   document.querySelector('#fyersConnectionTitle').textContent=userSession?'Your FYERS connection':'Personal staging diagnostics';
   document.querySelector('#labLegacyDiagnostics').hidden=userSession;
   document.querySelector('#fyersStagingNote').hidden=userSession;
@@ -459,6 +460,7 @@ async function refreshFyersConnection(){
   label.textContent=connected?
    'FYERS connection stored. Historical data access is checked when you run research; use diagnostics only if troubleshooting.':
    expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
+   userSession?'Use Connect your FYERS account to authorize read-only research on the official FYERS website. FinReview never asks for your FYERS password.':
    'Select Connect FYERS to sign in on the official FYERS page.';
  }catch(e){
   label.textContent='FYERS connection status unavailable. '+e.message;

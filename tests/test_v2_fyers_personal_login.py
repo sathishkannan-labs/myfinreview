@@ -141,6 +141,7 @@ async def test_third_party_callback_uses_only_the_starting_login(db, monkeypatch
     monkeypatch.setenv("AUTH_SECRET_KEY", "fixture-session-secret-at-least-32-bytes")
     monkeypatch.setenv("FINREVIEW_ENV", "production")
     monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
     monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://demo.example/finreview/intelligence.html")
 
     async def exchange(provider, code):
