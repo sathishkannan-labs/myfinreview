@@ -49,7 +49,7 @@
  <p class="mb-0">Research validated historical price data using transparent moving-average and breakout rules. Compare the observations, understand their limitations and export a report. No trading or investment recommendations.</p>
 </header>
 <div class="row g-2 mb-3" aria-label="Research workflow">
- <div class="col-md-4"><div class="lab-step"><span class="step-count">1</span><strong>Bring data</strong><div class="lab-secondary mt-2">Upload a CSV or start with synthetic examples.</div></div></div>
+ <div class="col-md-4"><div class="lab-step"><span class="step-count">1</span><strong>Bring data</strong><div class="lab-secondary mt-2">Use a permitted broker connection, CSV, or synthetic sample.</div></div></div>
  <div class="col-md-4"><div class="lab-step"><span class="step-count">2</span><strong>Run checks</strong><div class="lab-secondary mt-2">Validation, moving averages and breakout rules.</div></div></div>
  <div class="col-md-4"><div class="lab-step"><span class="step-count">3</span><strong>Interpret</strong><div class="lab-secondary mt-2">See evidence, as-of date and limitations. No trade execution.</div></div></div>
 </div>
@@ -225,6 +225,7 @@ async function analyzeHistoricalFile(file){
    const data=await response.json();
    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
    renderResearchReport(data,notice,{label:file.name,synthetic:file.name.toLowerCase().includes('synthetic'),provider:'csv'});
+   document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(err){notice.textContent='Unable to analyze: '+err.message;}
  finally{button.disabled=false;}
 }
@@ -431,6 +432,7 @@ document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
   if(!res.ok)throw Error(typeof data.detail==='string'?data.detail:'FYERS research unavailable (HTTP '+res.status+')');
   if(data.status==='NO_DATA')throw Error('FYERS returned no completed historical candles for this instrument.');
   renderResearchReport(data,notice,{label:symbol,provider:'fyers',synthetic:false});
+  document.querySelector('#fyersDataResult').textContent='This session: FYERS returned '+data.rows+' completed historical daily candles for '+symbol+' and '+(data.quote_status==='SNAPSHOT_RECEIVED'?'one quote API snapshot.':'no quote snapshot.')+' Exchange time and redistribution rights remain unverified.';
   document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){notice.textContent='Unable to analyze FYERS data: '+e.message;}
  finally{button.disabled=false;}
