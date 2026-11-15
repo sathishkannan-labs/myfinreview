@@ -1,13 +1,13 @@
 # FinReview 2.x — bring your own historical market data (BYO API)
 
-This document describes **development-stage** adapters on `release/2.x`. The public production demo running from `main` is unchanged. Nothing here enables real-money orders.
+This guide covers optional broker adapters in FinReview Community Edition v2.0.1. The public demo uses CSV and synthetic sample research when updated to this release. Those workflows require no broker account.
 
 ## Provider status
 
 | Provider | Data type | Implementation status | Key requirement |
 | --- | --- | --- | --- |
-| Upstox V3 | Historical daily OHLCV | Implemented, mocked CI tested; live unverified | User-supplied read-only Analytics Token |
-| FYERS V3 Standard | Historical daily OHLCV + quote adapter | Implemented, mocked/integration checks pending live access | User-supplied authorized session |
+| Upstox V3 | Historical daily OHLCV and LTP adapter | Backend only, mock-tested; live unverified | Analytics Token for history and a quote-authorized token in the LTP configuration slot |
+| FYERS V3 Standard | Historical daily OHLCV + quote adapter | Verified through the allowlisted owner workflow on staging | User-supplied authorized session |
 | Zerodha Kite Connect V3 | Historical daily OHLCV + LTP quotes | Implemented; mocked CI tested, live unverified | User-supplied **paid, data-enabled** Kite Connect session (Personal/free API excludes market data) |
 | CSV | UTC/offset-stamped OHLCV validation | Implemented, mocked CI tested | User-owned, licensed dataset |
 | Yahoo Finance | Existing v1 portfolio pricing (separate code) | Existing, not upgraded to v2 provider contract | Verify Yahoo usage restrictions |
@@ -18,11 +18,13 @@ Zerodha historical docs: https://kite.trade/docs/connect/v3/historical/
 Zerodha quotes docs: https://kite.trade/docs/connect/v3/market-quotes/
 Zerodha pricing: https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/what-are-the-charges-for-kite-apis
 
-## Community Edition broker selection
+## Research Lab availability
 
-Each authenticated user can choose historical and quotes providers independently in `frontend/intelligence.html` or via `GET/PUT /v2/market/preference`. These selections are non-secret preferences and do **not** authorize a broker connection. There is no forced default and no need to register with all three brokers. Upstox is optional for people who already use it; FYERS is optional for FYERS customers; Zerodha is optional for paid data-enabled Kite Connect users.
+Community users can analyze their own historical OHLCV CSV or run the synthetic sample. The maintainer's staging deployment also exposes FYERS personal research to its allowlisted owner. Its OAuth success redirect is fixed to the maintainer's staging frontend.
 
-The current preview does not accept broker tokens or credentials in browser forms. Safely storing and refreshing separate credentials per user will require an encrypted credential vault and provider-approved login flows before this can be offered in the public Community Edition.
+Upstox and Zerodha are backend adapters only in this release. The Lab has no provider selector for them or browser OAuth flow. The server rejects Upstox and Zerodha OAuth starts and callbacks. The account-scoped `GET/PUT /v2/market/preference` endpoints store non-secret preferences only.
+
+For setup, see [the environment template](../.env.example). For Docker Compose, copy it to `.env` in the repository root. For direct backend startup, copy it to `backend/.env`. Leave the broker flags off for Community CSV research and public demo deployments.
 
 ## Private deployment configuration
 
@@ -60,7 +62,7 @@ timestamp,open,high,low,close,volume
 - This stage has a database candle-cache foundation and an operator-invoked opt-in synchronization function (`intelligence.pipeline.synchronize_and_research`), but no automatic scheduler, operator CLI or consumer-facing import endpoint. It does not yet infer official market holidays, audit corporate actions or support a validated backtest.
 - Cached daily candles are isolated per user, provider and instrument; repeated identical imports are idempotent. Changed provider candles are rejected pending explicit reconciliation.
 - The authenticated `/v2/market/analyze-cached` route produces SMA and breakout research observations from cached **completed** daily bars only. This returns NO_DATA/INSUFFICIENT_DATA when appropriate, but does not create persisted trade signals.
-- CSV imports are a **validation-only** path until dedicated, per-user storage, limits, provenance and rollback are built.
+- CSV analysis is read-only. The research endpoint validates the file, computes a report, and does not persist the input candles.
 - Exchange-data rights differ from account/API access. Verify storage, analysis, charting, backtesting and redistribution rights with your provider before production use.
 - Historical API availability and rate limits can change. No uninterrupted data coverage is guaranteed.
 - Broker auth tokens may expire; manage session renewal using provider-approved flows only.
@@ -73,11 +75,11 @@ timestamp,open,high,low,close,volume
 
 The internal `intelligence.live_quotes.load_quotes` interface now normalizes **read-only LTP snapshots** across FYERS, Upstox V3 and Zerodha. Provider-specific identifiers remain distinct. Each normalized result contains provider, instrument, last price and an explicit `timestamp_verified=false` value when the quote endpoint supplies no independently validated trade timestamp. Do not treat a snapshot receipt time as the exchange trade time, and do not use these snapshots for automatic paper fills until stronger source-time and exchange-calendar checks are implemented.
 
-Upstox V3 LTP requires `UPSTOX_ACCESS_TOKEN` with market-data permissions; the `UPSTOX_ANALYTICS_TOKEN` used for historical access must **not** be assumed sufficient for quotes. No public API route for server-side shared tokens is exposed here. These adapters have mocked tests only; actual broker sessions and permissions remain unverified.
+FinReview reads `UPSTOX_ACCESS_TOKEN` for LTP and `UPSTOX_ANALYTICS_TOKEN` for history. These names are application configuration slots. Verify the token is allowed to request your intended endpoint under the [Upstox Analytics Token documentation](https://upstox.com/developer/api-documentation/analytics-token/). No public API route for server-side shared tokens is exposed here. Upstox and Zerodha quote adapters have mocked coverage. FYERS quote snapshots were verified for the staging owner.
 
 Official docs: [Upstox V3 LTP](https://upstox.com/developer/api-documentation/ltp-v3/), [FYERS quotes](https://fyers.in/api-docs/v3/api/market-data/quotes/), [Zerodha market quotes](https://kite.trade/docs/connect/v3/market-data-and-instruments/).
 
-For v2.0.1 development, the encrypted broker connection storage foundation is documented in [V2_BROKER_SECURITY.md](V2_BROKER_SECURITY.md). User-facing OAuth/token connection remains disabled. GET and DELETE /v2/market/connections expose safe metadata and local disconnect only.
+For v2.0.1 development, the encrypted broker connection storage foundation is documented in [V2_BROKER_SECURITY.md](V2_BROKER_SECURITY.md). FYERS OAuth is enabled only for the configured staging owner. The connection status and disconnect routes are scoped to the authenticated account.
 
 ## Remaining production-readiness gates
 
