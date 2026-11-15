@@ -34,6 +34,8 @@ async def test_real_data_shaped_history_to_deterministic_strategy(monkeypatch):
         scopes.append((uid,provider,purpose))
         return {"app_id":"fake","access_token":"SECRET_FOR_TEST"}
     monkeypatch.setattr(research,"read_trusted",fake_read)
+    async def valid(symbol):return symbol=="NSE:INFY-EQ"
+    monkeypatch.setattr(research,"is_current_equity",valid)
     # Clients are injected so no actual network call occurs.
     result=await research_from_fyers(object(),7,"NSE:INFY-EQ",
         now=NOW,history_client=History(),quote_client=Quotes())
@@ -56,6 +58,8 @@ async def test_invalid_instrument_prevents_vault_access(monkeypatch):
     def should_not_read(*args):
         raise AssertionError("No credential read for unallowlisted instrument")
     monkeypatch.setattr(research,"read_trusted",should_not_read)
+    async def invalid(symbol):return False
+    monkeypatch.setattr(research,"is_current_equity",invalid)
     with pytest.raises(MarketDataError):
         await research_from_fyers(None,1,"NSE:UNSUPPORTED-EQ",now=NOW)
 @pytest.mark.asyncio
