@@ -211,6 +211,17 @@ async function analyzeHistoricalFile(file){
    });
    const data=await response.json();
    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Analysis unavailable (HTTP '+response.status+')');
+   renderResearchReport(data,notice,{label:file.name,synthetic:file.name.toLowerCase().includes('synthetic'),provider:'csv'});
+ }catch(err){notice.textContent='Unable to analyze: '+err.message;}
+ finally{button.disabled=false;}
+}
+function renderResearchReport(data,notice,sourceMeta){
+ const panel=document.querySelector('#csvResearchResults');panel.replaceChildren();
+ if(!data||!data.rows||!data.strategies){
+   document.querySelector('#labReport').classList.add('lab-hidden');
+   notice.textContent='Not enough completed historical data for this report.';
+   return;
+ }
    lastReport=data;
    document.querySelector('#labReport').classList.remove('lab-hidden');
    const overview=document.querySelector('#labOverview');
@@ -232,15 +243,27 @@ async function analyzeHistoricalFile(file){
    const asof=new Date(data.last_timestamp);
    const ageDays=Number.isNaN(asof.getTime())?null:Math.floor((Date.now()-asof.getTime())/86400000);
    const quality=document.createElement('div');quality.className='lab-secondary small';
-   quality.textContent='Source: '+(file.name.toLowerCase().includes('synthetic')?'Synthetic demonstration (not tradable prices)':'User-supplied CSV (independently unverified)')+
+   quality.textContent='Source: '+(sourceMeta.provider==='fyers'?'FYERS personal OAuth session (read-only, no public redistribution)':sourceMeta.synthetic?'Synthetic demonstration (not tradable prices)':'User-supplied CSV (independently unverified)')+
      ' · Last candle: '+date(data.last_timestamp)+
      (ageDays!==null&&ageDays>7?' · Historical data is over 7 days old.':'')+
      ' · No market-data rights or corporate-action adjustments certified.';
    overview.appendChild(quality);
-   const synthetic=file.name.toLowerCase().includes('synthetic');
-   const sampleWarning=synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
-   notice.textContent='Historical analysis completed. Nothing was saved.'+sampleWarning;
-   document.querySelector('#reportFileName').textContent='File: '+file.name+' · '+data.rows+' historical daily candles'+(synthetic?' · SYNTHETIC SAMPLE':'');
+   if(sourceMeta.provider==='fyers'){
+     const quote=document.createElement('div');quote.className='lab-note mt-3';
+     if(data.quote_status==='SNAPSHOT_RECEIVED'&&data.quote){
+       quote.textContent='FYERS quote snapshot: ₹'+Number(data.quote.last_price).toFixed(2)+
+        ' · API received '+date(data.quote.received_at)+
+        '. This is the server receipt time, NOT a verified exchange trade time. No streaming or order execution.';
+     }else{
+       quote.textContent='Current quote unavailable. Historical research remains valid; last close is not a current price.';
+     }
+     overview.appendChild(quote);
+   }
+
+   const synthetic=sourceMeta.synthetic;
+   const sampleWarning=sourceMeta.provider==='fyers'?' FYERS data is unadjusted and exchange timestamps are not verified.':synthetic?' Synthetic demonstration data — not real prices.':' User-provided data — source accuracy unverified.';
+   notice.textContent='Historical research completed. Nothing stored.'+sampleWarning;
+   document.querySelector('#reportFileName').textContent=(sourceMeta.provider==='fyers'?'Broker instrument: ':'Data source: ')+sourceMeta.label+' · '+data.rows+' historical daily candles'+(synthetic?' · SYNTHETIC SAMPLE':'')+(sourceMeta.provider==='fyers'?' · PERSONAL USE ONLY':'');
    const metrics=document.querySelector('#labMetrics');metrics.replaceChildren();
    for(const [heading,value] of [
       ['Candles validated',String(data.rows)],
@@ -289,9 +312,8 @@ async function analyzeHistoricalFile(file){
      }
      col.appendChild(card);panel.appendChild(col);
    }
- }catch(err){notice.textContent='Unable to analyze: '+err.message;}
- finally{button.disabled=false;}
 }
+
 document.querySelector('#initializePaperAccount').addEventListener('click',async()=>{
  const notice=document.querySelector('#paperInitNotice');
  if(!token){notice.textContent='Sign in first.';return;}
@@ -369,6 +391,25 @@ document.querySelector('#connectFyers').addEventListener('click',async()=>{
   if(u.protocol!=='https:'||u.hostname!=='api-t1.fyers.in')throw Error('Unexpected authorization host');
   window.location.assign(u.href);
  }catch(e){label.textContent='Unable to start FYERS login: '+e.message;button.disabled=false;}
+});
+document.querySelector('#runFyersResearch').addEventListener('click',async()=>{
+ const button=document.querySelector('#runFyersResearch');
+ const notice=document.querySelector('#fyersResearchStatus');
+ if(!token||!fyersTestAvailable)return;
+ button.disabled=true;
+ notice.textContent='Fetching FYERS daily candles and quote with your encrypted broker session…';
+ try{
+  const symbol=document.querySelector('#fyersResearchSymbol').value;
+  const res=await fetch(CONFIG.API_URL+'/v2/market/fyers/research?instrument='+encodeURIComponent(symbol),{
+   headers:{Authorization:'Bearer '+token},cache:'no-store'
+  });
+  const data=await res.json();
+  if(!res.ok)throw Error(typeof data.detail==='string'?data.detail:'FYERS research unavailable (HTTP '+res.status+')');
+  if(data.status==='NO_DATA')throw Error('FYERS returned no completed historical candles for this instrument.');
+  renderResearchReport(data,notice,{label:symbol,provider:'fyers',synthetic:false});
+  document.querySelector('#labReport').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){notice.textContent='Unable to analyze FYERS data: '+e.message;}
+ finally{button.disabled=false;}
 });
 document.querySelector('#refreshFyersStatus').addEventListener('click',refreshFyersConnection);
 document.querySelector('#probeFyersProfile').addEventListener('click',async()=>{
