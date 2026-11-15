@@ -33,7 +33,7 @@ def test_research_workflow_is_primary_and_experimental_controls_collapsed():
     assert 'id="downloadResearchReport"' in RESEARCH
     assert 'id="labOptional"' in RESEARCH
     assert RESEARCH.index('id="researchCsvForm"') < RESEARCH.index('id="labOptional"')
-    assert "Historical research report" in RESEARCH
+    assert "historical research report" in RESEARCH.lower()
     assert "not buy/sell signals" in RESEARCH
     assert "Date unavailable" in RESEARCH
     assert "Invalid Date" not in RESEARCH
@@ -63,3 +63,33 @@ def test_private_fyers_connect_is_not_open_to_other_brokers():
     assert '/v2/market/fyers/test-availability' in RESEARCH
     assert '/v2/market/oauth/fyers/start' in RESEARCH
     assert 'u.hostname!==\'api-t1.fyers.in\'' in RESEARCH
+
+
+def test_community_research_has_complete_no_broker_path():
+    assert 'id="runDemoResearch"' in RESEARCH
+    assert 'id="researchCsvInput"' in RESEARCH
+    assert "async function analyzeHistoricalFile(file)" in RESEARCH
+    assert "analyzeHistoricalFile(file);" in RESEARCH
+    assert "data.strategies?.breakout?.observation" in RESEARCH
+    assert "data.strategies?.sma_trend?.observation" in RESEARCH
+    assert "id=\"labOverview\"" in RESEARCH
+    assert "Historical data is over 7 days old" in RESEARCH
+    assert 'id="downloadResearchReport"' in RESEARCH
+    assert "lastReport=data" in RESEARCH
+
+
+def test_developer_diagnostics_not_in_community_view_by_default():
+    from html.parser import HTMLParser
+
+    class DetailsParser(HTMLParser):
+        found=False
+        hidden=False
+        def handle_starttag(self,tag,attrs):
+            if tag=="details" and dict(attrs).get("id")=="labOptional":
+                self.found=True
+                self.hidden="hidden" in dict(attrs)
+    parser=DetailsParser()
+    parser.feed(RESEARCH)
+    assert parser.found and parser.hidden
+    assert "[hidden]{display:none!important}" in RESEARCH
+    assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
