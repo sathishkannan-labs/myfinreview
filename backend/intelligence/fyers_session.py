@@ -40,7 +40,11 @@ def configuration_ready():
     if not enabled():
         return False
     try:
-        broker_settings("fyers")
+        _, _, callback = broker_settings("fyers")
+        parsed = urlsplit(callback)
+        if (parsed.scheme != "https" or not parsed.hostname or
+                parsed.username or parsed.password or parsed.query or parsed.fragment):
+            return False
         return_url()
         _cipher()
         return True
