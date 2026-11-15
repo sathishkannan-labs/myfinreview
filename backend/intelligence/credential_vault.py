@@ -1,6 +1,6 @@
 """Per-account encrypted broker credential vault; no public token write endpoint.
 
-Intended for trusted, provider-approved OAuth callbacks only (not implemented yet).
+Intended for trusted, provider-approved OAuth callbacks and server-side operators.
 Secrets are encrypted at rest via Fernet; key must be kept in a separate secret
 manager. Never log tokens, include them in API output or expose to frontend JS.
 """
@@ -66,7 +66,7 @@ def status(session: Session, user_id: int):
 
 
 def store_trusted(session: Session, user_id: int, provider: str, purpose: str,
-                  credentials: dict, *, expires_at: datetime | None = None):
+                  credentials: dict, *, expires_at: datetime | None = None, commit: bool = True):
     """Trusted server-side integration only. No raw credentials via browser API."""
     _scope(user_id, provider, purpose)
     if not isinstance(credentials, dict) or not credentials or any(
@@ -90,7 +90,8 @@ def store_trusted(session: Session, user_id: int, provider: str, purpose: str,
     row.expires_at = expires_at
     row.updated_at = datetime.now(timezone.utc)
     session.add(row)
-    session.commit()
+    if commit:
+        session.commit()
     return {"provider": provider, "purpose": purpose, "state": "STORED_UNVERIFIED"}
 
 

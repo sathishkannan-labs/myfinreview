@@ -267,7 +267,7 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
     remains forbidden until the platform's URL logging policy is verified.
     """
     from fastapi.responses import HTMLResponse
-    from .broker_oauth import complete, BrokerAuthError
+    from .broker_oauth import BrokerAuthError
     headers={"Cache-Control":"no-store","Pragma":"no-cache",
              "Referrer-Policy":"no-referrer",
              "X-Content-Type-Options":"nosniff",
@@ -288,9 +288,8 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
     if not state or not code:
         return page("Authorization was not completed. Please restart the connection.")
     # State is user-scoped, one-time and expires in 5 minutes.
-    from .broker_oauth import claim_state, exchange_code
+    from .broker_oauth import claim_state, exchange_code, store_oauth_credentials
     from .broker_token_expiry import conservative_expiry
-    from .credential_vault import store_trusted
     from datetime import datetime, timezone
     try:
         user_id=claim_state(session,"fyers",state)
@@ -298,8 +297,7 @@ async def broker_authorization_callback(provider: Literal["fyers", "upstox", "ze
             return page("This FYERS app is not enabled for this staging account.")
         credentials=await exchange_code("fyers",code)
         expiry=conservative_expiry("fyers",datetime.now(timezone.utc))
-        for purpose in ("historical","quotes"):
-            store_trusted(session,user_id,"fyers",purpose,credentials,expires_at=expiry)
+        store_oauth_credentials(session, user_id, "fyers", credentials, expires_at=expiry)
         # Redirect only to the fixed, operator-controlled staging UI.
         # Never forward request parameters, auth_code, state or broker tokens.
         from fastapi.responses import RedirectResponse

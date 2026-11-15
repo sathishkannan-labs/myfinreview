@@ -93,3 +93,38 @@ def test_pending_auth_attempts_are_bounded_per_account(db):
     assert begin(db,2,"upstox",now=now)["status"]=="PENDING"
     # Old attempts cannot block a fresh flow forever.
     assert begin(db,1,"upstox",now=now+timedelta(minutes=6))["status"]=="PENDING"
+
+
+@pytest.mark.asyncio
+async def test_oauth_scope_write_failure_preserves_previous_session_and_consumes_state(db, monkeypatch):
+    from intelligence import broker_oauth
+    from intelligence.credential_vault import store_trusted
+
+    for purpose in ("historical", "quotes"):
+        store_trusted(db, 1, "fyers", purpose, {"access_token": "previous-token"})
+    info = begin(db, 1, "fyers")
+    state = parse_qs(urlparse(info["authorization_url"]).query)["state"][0]
+
+    def fail_on_quotes(session, user_id, broker, purpose, credentials, **kwargs):
+        if purpose == "quotes":
+            raise RuntimeError("private storage error")
+        return store_trusted(session, user_id, broker, purpose, credentials, **kwargs)
+
+    monkeypatch.setattr(broker_oauth, "store_trusted", fail_on_quotes)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req:
+        httpx.Response(200, json={"s": "ok", "access_token": "replacement-token"}))) as client:
+        with pytest.raises(BrokerAuthError, match="could not be stored"):
+            await complete(db, "fyers", state, "valid-code", client=client)
+    for purpose in ("historical", "quotes"):
+        assert read_trusted(db, 1, "fyers", purpose)["access_token"] == "previous-token"
+    with pytest.raises(BrokerAuthError, match="already consumed"):
+        claim_state(db, "fyers", state)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("broker,payload", [("fyers", []), ("zerodha", {"status": "success", "data": None})])
+async def test_invalid_broker_exchange_payload_is_a_controlled_error(db, broker, payload):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req:
+        httpx.Response(200, json=payload))) as client:
+        with pytest.raises(BrokerAuthError):
+            await exchange_code(broker, "temporary-code", client=client)

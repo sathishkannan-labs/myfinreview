@@ -105,13 +105,14 @@ def claim_state(session: Session, broker: str, state: str, *, now=None):
         expires=expires.replace(tzinfo=timezone.utc)
     if expires<=current:
         raise BrokerAuthError("Invalid or expired authorization attempt")
+    user_id = row.user_id
     changed=session.exec(update(BrokerAuthAttempt).where(
         BrokerAuthAttempt.id==row.id, BrokerAuthAttempt.claimed_at.is_(None)
     ).values(claimed_at=current))
     session.commit()
     if changed.rowcount != 1:
         raise BrokerAuthError("Authorization attempt already consumed")
-    return row.user_id
+    return user_id
 
 async def exchange_code(broker: str, code: str, *, client=None):
     """Server-to-server token exchange; never return raw response or exception."""
@@ -139,17 +140,32 @@ async def exchange_code(broker: str, code: str, *, client=None):
             res=await client.post(url, **kwargs)
         res.raise_for_status()
         payload=res.json()
+        if not isinstance(payload, dict):
+            raise BrokerAuthError("Broker authorization response was invalid")
         if broker=="fyers":
             token=payload.get("access_token") if payload.get("s")=="ok" else None
         elif broker=="upstox":
             token=payload.get("access_token")
         else:
-            token=payload.get("data",{}).get("access_token") if payload.get("status")=="success" else None
+            session_data = payload.get("data")
+            token = session_data.get("access_token") if payload.get("status") == "success" and isinstance(session_data, dict) else None
         if not isinstance(token,str) or not token:
             raise BrokerAuthError("Broker rejected authorization code")
         return {"access_token":token, "app_id":app_id}
     except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
         raise BrokerAuthError("Broker authorization exchange failed") from None
+
+def store_oauth_credentials(session, user_id, broker, credentials, *, expires_at):
+    """Replace both OAuth scopes together, preserving the prior session on failure."""
+    try:
+        for purpose in ("historical", "quotes"):
+            store_trusted(session, user_id, broker, purpose, credentials,
+                          expires_at=expires_at, commit=False)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise BrokerAuthError("Broker credentials could not be stored") from None
+
 
 async def complete(session: Session, broker: str, state: str, code: str, *, client=None, now=None):
     """Consume state BEFORE network exchange. Failed exchanges cannot be replayed."""
@@ -159,7 +175,6 @@ async def complete(session: Session, broker: str, state: str, code: str, *, clie
     # Use a conservative local upper bound, never a promise of token validity.
     from .broker_token_expiry import conservative_expiry
     expiry=conservative_expiry(broker,current)
-    for purpose in ("historical", "quotes"):
-        store_trusted(session,user_id,broker,purpose,credentials,expires_at=expiry)
+    store_oauth_credentials(session, user_id, broker, credentials, expires_at=expiry)
     return {"provider":broker,"state":"STORED_UNVERIFIED",
             "live_validation":"NOT_PERFORMED","trading_enabled":False}
