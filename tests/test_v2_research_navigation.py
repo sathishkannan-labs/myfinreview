@@ -106,3 +106,34 @@ def test_nonfunctional_broker_preferences_removed_from_research_ui():
     assert 'id="fyersResearchSymbol"' in RESEARCH
     assert "FYERS quote snapshot" in RESEARCH
     assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
+
+
+def test_shared_report_is_outside_data_source_panels():
+    from html.parser import HTMLParser
+    class Layout(HTMLParser):
+        stack=[]
+        parent=None
+        def handle_starttag(self,tag,attrs):
+            d=dict(attrs)
+            if tag in ("section","details"):
+                if d.get("id")=="labReport":
+                    self.parent=self.stack[-1] if self.stack else None
+                self.stack.append(d.get("id") or tag)
+        def handle_endtag(self,tag):
+            if tag in ("section","details") and self.stack:
+                self.stack.pop()
+    # Ensure the CSV section is closed before the report begins.
+    assert RESEARCH.index('</section>\\n<section id="labReport"') < RESEARCH.index('id="labOptional"')
+    assert 'id="strategyResearchResults"' in RESEARCH
+    assert 'id="csvResearchResults"' not in RESEARCH
+    assert 'id="printResearchReport"' in RESEARCH
+    assert "window.print()" in RESEARCH
+
+
+def test_diagnostics_not_misleading_after_authenticated_fyers_research():
+    assert "Historical data access is checked when you run research" in RESEARCH
+    assert "Optional diagnostic check has not been run on this page load" in RESEARCH
+    assert 'id="labLegacyDiagnostics"' in RESEARCH
+    assert "event.target.open)refresh()" in RESEARCH
+    assert "refreshFyersConnection();\\nrefresh();" not in RESEARCH
+    assert "Server receipt time only" in RESEARCH
