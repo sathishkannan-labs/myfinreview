@@ -24,7 +24,7 @@ def test_research_workspace_uses_existing_auth_and_apis():
     assert "finreview_token" in RESEARCH
     assert "/v2/signals" in RESEARCH
     assert "/v2/paper-account" in RESEARCH
-    assert "/v2/market/preference" in RESEARCH
+    assert "/v2/market/fyers/research" in RESEARCH
 
 
 def test_research_workflow_is_primary_and_experimental_controls_collapsed():
@@ -92,4 +92,17 @@ def test_developer_diagnostics_not_in_community_view_by_default():
     parser.feed(RESEARCH)
     assert parser.found and parser.hidden
     assert "[hidden]{display:none!important}" in RESEARCH
+    assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
+
+
+def test_nonfunctional_broker_preferences_removed_from_research_ui():
+    assert 'id="providerForm"' not in RESEARCH
+    assert 'id="historyProvider"' not in RESEARCH
+    assert 'id="quoteProvider"' not in RESEARCH
+    assert "loadProviderPreference()" not in RESEARCH
+    assert 'id="liveBrokerResearch"' in RESEARCH
+    assert 'id="runFyersResearch"' in RESEARCH
+    assert "renderResearchReport(data,notice" in RESEARCH
+    assert 'id="fyersResearchSymbol"' in RESEARCH
+    assert "FYERS quote snapshot" in RESEARCH
     assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
