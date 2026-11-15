@@ -257,7 +257,8 @@ def _fyers_staging_owner(user_id=None):
 def fyers_test_availability(user: User = Depends(current_user)):
     """Nonsecret user-scoped FYERS staging capability, not an entitlement claim."""
     if fyers_session.enabled():
-        return {"available": True, "mode": "THIRD_PARTY_SESSION", "live_validated": False}
+        return {"available": fyers_session.configuration_ready(),
+                "mode": "THIRD_PARTY_SESSION", "live_validated": False}
     return {"available":_fyers_staging_owner(user.id),
             "mode":"PERSONAL_STAGING_ONLY", "live_validated":False}
 
