@@ -13,11 +13,11 @@ def test_research_link_visible_in_main_navigation_and_dashboard():
 
 
 def test_v2_status_is_visible_and_does_not_claim_live_trading():
-    assert "v2.0.1 Preview" in HOME
+    assert "v2.0.2 Preview" in HOME
     assert "Analyze historical prices from a CSV, or try a sample report." in HOME
     assert "Explore research signals, paper-account observations" not in HOME
     assert "No live orders are available" in RESEARCH
-    assert "FinReview v2.0.1 — Research Lab" in RESEARCH
+    assert "FinReview v2.0.2 — Research Lab" in RESEARCH
     assert "FYERS individual-app login can be enabled only" in RESEARCH
 
 
@@ -93,7 +93,7 @@ def test_developer_diagnostics_not_in_community_view_by_default():
     parser.feed(RESEARCH)
     assert parser.found and parser.hidden
     assert "[hidden]{display:none!important}" in RESEARCH
-    assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
+    assert "diagnostics.hidden=!(fyersTestAvailable||localRecords.length>0)" in RESEARCH
 
 
 def test_nonfunctional_broker_preferences_removed_from_research_ui():
@@ -106,7 +106,7 @@ def test_nonfunctional_broker_preferences_removed_from_research_ui():
     assert "renderResearchReport(data,notice" in RESEARCH
     assert 'id="fyersResearchSymbol"' in RESEARCH
     assert "FYERS quote API snapshot" in RESEARCH
-    assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
+    assert "diagnostics.hidden=!(fyersTestAvailable||localRecords.length>0)" in RESEARCH
 
 
 def test_shared_report_is_outside_data_source_panels():

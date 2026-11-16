@@ -130,3 +130,96 @@ def test_staging_ui_exposes_readonly_probe_without_prices():
     assert 'id="probeFyersData"' in html
     assert "/v2/market/fyers/test-data" in html
     assert "Reauthorize" in html
+
+
+@pytest.mark.asyncio
+async def test_third_party_callback_uses_only_the_starting_login(db, monkeypatch):
+    from intelligence import broker_oauth, fyers_session
+    from intelligence.routes import broker_connection_status
+    from main import _issue_token
+
+    monkeypatch.setenv("AUTH_SECRET_KEY", "fixture-session-secret-at-least-32-bytes")
+    monkeypatch.setenv("FINREVIEW_ENV", "production")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://demo.example/finreview/intelligence.html")
+
+    async def exchange(provider, code):
+        assert provider == "fyers" and code == "fixture-code"
+        return {"access_token": "private-fixture", "app_id": "fixture"}
+
+    monkeypatch.setattr(broker_oauth, "exchange_code", exchange)
+    user = SimpleNamespace(id=2)
+    auth = "Bearer " + _issue_token(user.id)
+    info = start_broker_authorization("fyers", user=user, session=db, authorization=auth)
+    state = parse_qs(urlparse(info["authorization_url"]).query)["state"][0]
+    response = await broker_authorization_callback(
+        "fyers", request=SimpleNamespace(query_params={"auth_code": "fixture-code", "state": state}), session=db
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "https://demo.example/finreview/intelligence.html#fyersConnectionPanel"
+    assert len(broker_connection_status(user=user, session=db, authorization=auth)["connections"]) == 2
+    assert fyers_session.read(db, user.id, auth)["access_token"] == "private-fixture"
+    other = "Bearer " + _issue_token(user.id)
+    assert broker_connection_status(user=user, session=db, authorization=other)["connections"] == []
+    assert broker_connection_status(user=SimpleNamespace(id=1), session=db, authorization=auth)["connections"] == []
+    assert status(db, user.id)["connections"] == []
+
+
+def test_third_party_requires_approval_and_complete_configuration(db, monkeypatch):
+    """An enabled-but-unapproved integration must never expose a multi-user login."""
+    from fastapi import HTTPException
+    from intelligence import fyers_session
+    from main import _issue_token
+
+    monkeypatch.setenv("AUTH_SECRET_KEY", "fixture-session-secret-at-least-32-bytes")
+    monkeypatch.setenv("FINREVIEW_ENV", "production")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.delenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", raising=False)
+    monkeypatch.delenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", raising=False)
+    assert not fyers_session.enabled()
+    assert not fyers_session.configuration_ready()
+    assert not fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+    with pytest.raises(HTTPException) as error:
+        start_broker_authorization("fyers", user=SimpleNamespace(id=2), session=db)
+    assert error.value.status_code == 403
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
+    assert fyers_session.enabled()
+    assert not fyers_session.configuration_ready()  # Return destination still missing
+    assert not fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+    auth = "Bearer " + _issue_token(2)
+    with pytest.raises(HTTPException) as error:
+        start_broker_authorization("fyers", user=SimpleNamespace(id=2), session=db, authorization=auth)
+    assert error.value.status_code == 409
+
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
+    assert fyers_session.configuration_ready()
+    assert fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+    with pytest.raises(HTTPException) as error:
+        start_broker_authorization("fyers", user=SimpleNamespace(id=2), session=db, authorization=None)
+    assert error.value.status_code == 409
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "false")
+    assert not fyers_session.enabled()
+    assert not fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+
+
+def test_third_party_readiness_rejects_callback_without_hostname(db, monkeypatch):
+    from intelligence import fyers_session
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://")
+    assert not fyers_session.configuration_ready()
+
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org/v2/market/oauth/fyers/callback")
+    assert fyers_session.configuration_ready()
+
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org:bad/v2/market/oauth/fyers/callback")
+    assert not fyers_session.configuration_ready()
+
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org/v2/market/oauth/fyers/callback")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org:99999/intelligence.html")
+    assert not fyers_session.configuration_ready()

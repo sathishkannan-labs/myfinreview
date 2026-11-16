@@ -31,7 +31,7 @@ def _result(obs):
 
 
 async def research_from_fyers(session, user_id:int, instrument:str, *, now=None,
-                              history_client=None, quote_client=None):
+                              history_client=None, quote_client=None, credentials=None):
     """User-scoped, read-only, small response; provider timestamps unverified."""
     try:
         valid_instrument = await is_current_equity(instrument)
@@ -45,8 +45,8 @@ async def research_from_fyers(session, user_id:int, instrument:str, *, now=None,
     today=now.astimezone(IST).date()
     end=today-timedelta(days=1)
     start=end-timedelta(days=160)
-    historical=read_trusted(session,user_id,"fyers","historical")
-    quotes=read_trusted(session,user_id,"fyers","quotes")
+    historical = credentials if credentials is not None else read_trusted(session,user_id,"fyers","historical")
+    quotes = credentials if credentials is not None else read_trusted(session,user_id,"fyers","quotes")
     dataset=await load_history("fyers",instrument,start,end,
         fyers=history_client or make_client("fyers",historical,purpose="historical"))
     # A daily candle timestamp is not evidence that today's session has closed.

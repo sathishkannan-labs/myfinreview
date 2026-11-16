@@ -394,7 +394,13 @@ function setAuth(token, user, userId, profileData = {}) {
     fetchPortfolioSummary(true);
 }
 
-function logout() {
+async function logout() {
+    if (AUTH_TOKEN?.startsWith('frv2:')) {
+        await fetch(`${CONFIG.API_URL}/v2/market/fyers/session`, {
+            method: 'DELETE', keepalive: true, signal: AbortSignal.timeout(3000),
+            headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
+        }).catch(() => {});
+    }
     localStorage.clear();
     location.reload();
 }
