@@ -24,7 +24,32 @@ class FyersSession(SQLModel, table=True):
 
 
 def enabled():
-    return os.getenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "").lower() == "true"
+    """Third-party onboarding is explicitly opt-in AND approval-gated.
+
+    The approval flag is an operator attestation, never proof of FYERS consent.
+    Until FYERS grants authorization, both settings must remain false.
+    """
+    return (
+        os.getenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "").lower() == "true"
+        and os.getenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "").lower() == "true"
+    )
+
+
+def configuration_ready():
+    """Safe capability check: no secrets or configuration errors in the response."""
+    if not enabled():
+        return False
+    try:
+        _, _, callback = broker_settings("fyers")
+        parsed = urlsplit(callback)
+        if (parsed.scheme != "https" or not parsed.hostname or
+                parsed.username or parsed.password or parsed.query or parsed.fragment):
+            return False
+        return_url()
+        _cipher()
+        return True
+    except (BrokerAuthError, ValueError, RuntimeError):
+        return False
 
 
 def return_url():
