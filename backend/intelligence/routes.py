@@ -218,12 +218,25 @@ def broker_connection_status(user: User = Depends(current_user),
                              session: Session = Depends(get_session),
                              authorization: Optional[str] = Header(None)):
     if fyers_session.enabled():
-        return fyers_session.status(session, user.id, authorization)
+        result = fyers_session.status(session, user.id, authorization)
+        result["connections"] = [
+            {**item, "store": "third_party_session"}
+            for item in result["connections"]
+        ]
+        result["inactive_connections"] = []
+        return result
     inactive_fyers = fyers_session.status(session, user.id, authorization)
-    if inactive_fyers["connections"]:
-        return inactive_fyers
     from .credential_vault import status
-    return status(session, user.id)
+    active = status(session, user.id)
+    active["connections"] = [
+        {**item, "store": "credential_vault"}
+        for item in active["connections"]
+    ]
+    active["inactive_connections"] = [
+        {**item, "store": "third_party_session"}
+        for item in inactive_fyers["connections"]
+    ]
+    return active
 
 @router.delete("/market/connections/{provider}")
 def disconnect_broker(provider: Literal["fyers", "upstox", "zerodha"],

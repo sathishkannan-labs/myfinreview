@@ -12,6 +12,7 @@ from sqlmodel import SQLModel, Session, create_engine
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from intelligence import fyers_session
 from intelligence.broker_oauth import BrokerAuthError
+from intelligence.credential_vault import store_trusted
 from intelligence.routes import (
     broker_connection_status,
     disconnect_broker,
@@ -104,7 +105,29 @@ def test_disabled_mode_still_exposes_and_deletes_local_session(app_db, monkeypat
         datetime.now(timezone.utc) + timedelta(hours=1),
     )
 
+    session_row = app_db.get(fyers_session.FyersSession, fyers_session.session_key(auth))
+    session_row.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    app_db.add(session_row)
+    app_db.commit()
+    store_trusted(
+        app_db,
+        user.id,
+        "fyers",
+        "historical",
+        {"access_token": "fresh-personal-staging-fixture"},
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+
     monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "false")
-    assert len(broker_connection_status(user=user, session=app_db, authorization=auth)["connections"]) == 2
+    status = broker_connection_status(user=user, session=app_db, authorization=auth)
+    assert len(status["connections"]) == 1
+    assert status["connections"][0]["store"] == "credential_vault"
+    assert status["connections"][0]["state"] == "STORED_UNVERIFIED"
+    assert len(status["inactive_connections"]) == 2
+    assert {item["store"] for item in status["inactive_connections"]} == {"third_party_session"}
+    assert {item["state"] for item in status["inactive_connections"]} == {"EXPIRED"}
+    assert "fresh-personal-staging-fixture" not in str(status)
     disconnect_broker("fyers", user=user, session=app_db, authorization=auth)
-    assert broker_connection_status(user=user, session=app_db, authorization=auth)["connections"] == []
+    status = broker_connection_status(user=user, session=app_db, authorization=auth)
+    assert status["connections"] == []
+    assert status["inactive_connections"] == []

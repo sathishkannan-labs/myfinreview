@@ -427,10 +427,12 @@ async function refreshFyersConnection(){
   fyersTestAvailable=Boolean(cap.available);
   const userSession=cap.mode==='THIRD_PARTY_SESSION';
   const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
+  const inactiveRecords=(stat.inactive_connections||[]).filter(item=>item.provider==='fyers');
+  const localRecords=[...records,...inactiveRecords];
   // Keep local disconnect available for an existing session even if activation
   // is later disabled or the provider configuration becomes incomplete.
   const diagnostics=document.querySelector('#labOptional');
-  diagnostics.hidden=!(fyersTestAvailable||records.length>0);
+  diagnostics.hidden=!(fyersTestAvailable||localRecords.length>0);
   document.querySelector('#connectFyers').textContent=userSession?'Connect your FYERS account':'Connect FYERS';
   document.querySelector('#fyersConnectionTitle').textContent=userSession?'Your FYERS connection':'Personal staging diagnostics';
   document.querySelector('#labLegacyDiagnostics').hidden=userSession;
@@ -448,8 +450,8 @@ async function refreshFyersConnection(){
     'FYERS session missing or expired. Connect FYERS to use broker data.';
   const expired=records.length>0&&!connected;
   if(!fyersTestAvailable){
-   disconnect.disabled=records.length===0;
-   label.textContent=records.length>0?
+   disconnect.disabled=localRecords.length===0;
+   label.textContent=localRecords.length>0?
     'FYERS connection is unavailable, but you can remove the stored local session.':
     'Personal staging diagnostics unavailable for this account.';
    return;
@@ -460,7 +462,7 @@ async function refreshFyersConnection(){
   connect.disabled=false;
   probe.disabled=!connected;
   dataButton.disabled=!connected;
-  disconnect.disabled=!userSession&&records.length===0;
+  disconnect.disabled=!userSession&&localRecords.length===0;
   label.textContent=connected?
    'FYERS connection stored. Historical data access is checked when you run research; use diagnostics only if troubleshooting.':
    expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
