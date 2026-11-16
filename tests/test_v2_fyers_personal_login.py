@@ -170,7 +170,9 @@ def test_third_party_requires_approval_and_complete_configuration(db, monkeypatc
     """An enabled-but-unapproved integration must never expose a multi-user login."""
     from fastapi import HTTPException
     from intelligence import fyers_session
+    from main import _issue_token
 
+    monkeypatch.setenv("AUTH_SECRET_KEY", "fixture-session-secret-at-least-32-bytes")
     monkeypatch.setenv("FINREVIEW_ENV", "production")
     monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
     monkeypatch.delenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", raising=False)
@@ -186,13 +188,17 @@ def test_third_party_requires_approval_and_complete_configuration(db, monkeypatc
     assert fyers_session.enabled()
     assert not fyers_session.configuration_ready()  # Return destination still missing
     assert not fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+    auth = "Bearer " + _issue_token(2)
     with pytest.raises(HTTPException) as error:
-        start_broker_authorization("fyers", user=SimpleNamespace(id=2), session=db, authorization=None)
+        start_broker_authorization("fyers", user=SimpleNamespace(id=2), session=db, authorization=auth)
     assert error.value.status_code == 409
 
     monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
     assert fyers_session.configuration_ready()
     assert fyers_test_availability(user=SimpleNamespace(id=2))["available"]
+    with pytest.raises(HTTPException) as error:
+        start_broker_authorization("fyers", user=SimpleNamespace(id=2), session=db, authorization=None)
+    assert error.value.status_code == 409
 
     monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "false")
     assert not fyers_session.enabled()
@@ -212,4 +218,8 @@ def test_third_party_readiness_rejects_callback_without_hostname(db, monkeypatch
     assert fyers_session.configuration_ready()
 
     monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org:bad/v2/market/oauth/fyers/callback")
+    assert not fyers_session.configuration_ready()
+
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org/v2/market/oauth/fyers/callback")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org:99999/intelligence.html")
     assert not fyers_session.configuration_ready()

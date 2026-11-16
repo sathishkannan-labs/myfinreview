@@ -58,6 +58,8 @@ def return_url():
     value = os.getenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "")
     try:
         url = urlsplit(value)
+        # Accessing .port validates both its syntax and numeric range.
+        url.port
         if (url.scheme == "https" and url.hostname and not url.username and
                 url.password is None and not url.query and not url.fragment and
                 url.path.endswith("/intelligence.html") and
