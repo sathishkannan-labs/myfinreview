@@ -219,6 +219,9 @@ def broker_connection_status(user: User = Depends(current_user),
                              authorization: Optional[str] = Header(None)):
     if fyers_session.enabled():
         return fyers_session.status(session, user.id, authorization)
+    inactive_fyers = fyers_session.status(session, user.id, authorization)
+    if inactive_fyers["connections"]:
+        return inactive_fyers
     from .credential_vault import status
     return status(session, user.id)
 
@@ -227,9 +230,10 @@ def disconnect_broker(provider: Literal["fyers", "upstox", "zerodha"],
                       user: User = Depends(current_user),
                       session: Session = Depends(get_session),
                       authorization: Optional[str] = Header(None)):
-    if provider == "fyers" and fyers_session.enabled():
+    if provider == "fyers":
         fyers_session.disconnect(session, user.id, authorization)
-        return {"provider": provider, "local_credentials_deleted": True, "upstream_revocation": "NOT_PERFORMED"}
+        if fyers_session.enabled():
+            return {"provider": provider, "local_credentials_deleted": True, "upstream_revocation": "NOT_PERFORMED"}
     from .credential_vault import disconnect
     return disconnect(session, user.id, provider)
 
@@ -257,7 +261,8 @@ def _fyers_staging_owner(user_id=None):
 def fyers_test_availability(user: User = Depends(current_user)):
     """Nonsecret user-scoped FYERS staging capability, not an entitlement claim."""
     if fyers_session.enabled():
-        return {"available": True, "mode": "THIRD_PARTY_SESSION", "live_validated": False}
+        return {"available": fyers_session.configuration_ready(),
+                "mode": "THIRD_PARTY_SESSION", "live_validated": False}
     return {"available":_fyers_staging_owner(user.id),
             "mode":"PERSONAL_STAGING_ONLY", "live_validated":False}
 

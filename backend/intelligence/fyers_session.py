@@ -24,14 +24,34 @@ class FyersSession(SQLModel, table=True):
 
 
 def enabled():
-    """Multi-user FYERS mode requires BOTH operator activation and approval.
+    """Third-party onboarding is explicitly opt-in AND approval-gated.
 
-    The approval flag is an operator attestation, not proof of FYERS consent.
-    Leave it false until FYERS has approved the third-party app, market-data
-    permissions and the intended user population.
+    The approval flag is an operator attestation, never proof of FYERS consent.
+    Until FYERS grants authorization, both settings must remain false.
     """
-    return (os.getenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "").lower() == "true"
-            and os.getenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "").lower() == "true")
+    return (
+        os.getenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "").lower() == "true"
+        and os.getenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "").lower() == "true"
+    )
+
+
+def configuration_ready():
+    """Safe capability check: no secrets or configuration errors in the response."""
+    if not enabled():
+        return False
+    try:
+        _, _, callback = broker_settings("fyers")
+        parsed = urlsplit(callback)
+        # Accessing .port validates both its syntax and numeric range.
+        parsed.port
+        if (parsed.scheme != "https" or not parsed.hostname or
+                parsed.username or parsed.password or parsed.query or parsed.fragment):
+            return False
+        return_url()
+        _cipher()
+        return True
+    except (BrokerAuthError, ValueError, RuntimeError):
+        return False
 
 
 def return_url():
@@ -53,7 +73,9 @@ def _key(value):
 
 
 def session_key(authorization):
-    token = (authorization or "").removeprefix("Bearer ").strip()
+    if not isinstance(authorization, str):
+        raise BrokerAuthError("Sign in again to connect FYERS")
+    token = authorization.removeprefix("Bearer ").strip()
     if not token.startswith("frv2:"):
         raise BrokerAuthError("Sign in again to connect FYERS")
     return _key(token)

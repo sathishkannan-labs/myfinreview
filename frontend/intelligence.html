@@ -425,10 +425,12 @@ async function refreshFyersConnection(){
    api('/v2/market/fyers/test-availability'),api('/v2/market/connections')
   ]);
   fyersTestAvailable=Boolean(cap.available);
-  // Diagnostics are visible only to the staging account allowlisted by the backend.
-  const diagnostics=document.querySelector('#labOptional');
-  diagnostics.hidden=!fyersTestAvailable;
   const userSession=cap.mode==='THIRD_PARTY_SESSION';
+  const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
+  // Keep local disconnect available for an existing session even if activation
+  // is later disabled or the provider configuration becomes incomplete.
+  const diagnostics=document.querySelector('#labOptional');
+  diagnostics.hidden=!(fyersTestAvailable||records.length>0);
   document.querySelector('#connectFyers').textContent=userSession?'Connect your FYERS account':'Connect FYERS';
   document.querySelector('#fyersConnectionTitle').textContent=userSession?'Your FYERS connection':'Personal staging diagnostics';
   document.querySelector('#labLegacyDiagnostics').hidden=userSession;
@@ -436,7 +438,6 @@ async function refreshFyersConnection(){
   document.querySelector('#fyersProbeNote').hidden=userSession;
   document.querySelector('#probeFyersProfile').hidden=userSession;
   document.querySelector('#probeFyersData').hidden=userSession;
-  const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
   const required=['historical','quotes'].map(purpose=>records.find(item=>item.purpose===purpose&&item.state==='STORED_UNVERIFIED'));
   const deadline=required.every(Boolean)?Math.min(...required.map(item=>item.expires_at?Date.parse(item.expires_at):Infinity)):0;
   const connected=deadline>Date.now()&&deadline!==rejectedFyersDeadline;
@@ -447,7 +448,10 @@ async function refreshFyersConnection(){
     'FYERS session missing or expired. Connect FYERS to use broker data.';
   const expired=records.length>0&&!connected;
   if(!fyersTestAvailable){
-   label.textContent='Personal staging diagnostics unavailable for this account.';
+   disconnect.disabled=records.length===0;
+   label.textContent=records.length>0?
+    'FYERS connection is unavailable, but you can remove the stored local session.':
+    'Personal staging diagnostics unavailable for this account.';
    return;
   }
   if(window.location.hash==='#fyersConnectionPanel'){

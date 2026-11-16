@@ -12,7 +12,12 @@ from sqlmodel import SQLModel, Session, create_engine
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from intelligence import fyers_session
 from intelligence.broker_oauth import BrokerAuthError
-from intelligence.routes import fyers_test_availability, start_broker_authorization
+from intelligence.routes import (
+    broker_connection_status,
+    disconnect_broker,
+    fyers_test_availability,
+    start_broker_authorization,
+)
 from models.portable_models import User
 
 
@@ -81,3 +86,25 @@ def test_browser_only_receives_app_login_url_not_secret(app_db, monkeypatch):
     assert "fixture-secret" not in str(result)
     assert "access_token" not in str(result)
     assert result["authorization_url"].startswith("https://api-t1.fyers.in/")
+
+
+def test_disabled_mode_still_exposes_and_deletes_local_session(app_db, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from main import _issue_token
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
+    user = SimpleNamespace(id=1)
+    auth = "Bearer " + _issue_token(user.id)
+    state = parse_qs(urlparse(fyers_session.begin(app_db, user.id, auth)["authorization_url"]).query)["state"][0]
+    digest = fyers_session.claim(app_db, state)
+    fyers_session.finish(
+        app_db,
+        digest,
+        {"access_token": "private-fixture"},
+        datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "false")
+    assert len(broker_connection_status(user=user, session=app_db, authorization=auth)["connections"]) == 2
+    disconnect_broker("fyers", user=user, session=app_db, authorization=auth)
+    assert broker_connection_status(user=user, session=app_db, authorization=auth)["connections"] == []
