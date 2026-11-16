@@ -210,3 +210,20 @@ def test_third_party_readiness_rejects_callback_without_hostname(db, monkeypatch
 
     monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org/v2/market/oauth/fyers/callback")
     assert fyers_session.configuration_ready()
+
+
+@pytest.mark.parametrize(("authority", "ready"), [
+    ("example.org:not-a-port", False),
+    ("example.org:65536", False),
+    ("example.org:-1", False),
+    ("example.org:443", True),
+    ("example.org:8443", True),
+])
+def test_third_party_readiness_validates_callback_port(db, monkeypatch, authority, ready):
+    from intelligence import fyers_session
+
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_ENABLED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_THIRD_PARTY_APPROVED", "true")
+    monkeypatch.setenv("FINREVIEW_FYERS_FRONTEND_RETURN_URL", "https://example.org/intelligence.html")
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", f"https://{authority}/v2/market/oauth/fyers/callback")
+    assert fyers_session.configuration_ready() is ready

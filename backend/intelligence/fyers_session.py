@@ -42,6 +42,7 @@ def configuration_ready():
     try:
         _, _, callback = broker_settings("fyers")
         parsed = urlsplit(callback)
+        _ = parsed.port  # Access validates malformed and out-of-range ports.
         if (parsed.scheme != "https" or not parsed.hostname or
                 parsed.username or parsed.password or parsed.query or parsed.fragment):
             return False
