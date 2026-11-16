@@ -20,6 +20,19 @@ services:
         value: staging
       - key: FINREVIEW_V2_OAUTH_ENABLED
         value: "false"
+      # Independent, fail-closed gates. Do NOT enable before FYERS approval.
+      - key: FINREVIEW_FYERS_THIRD_PARTY_ENABLED
+        value: "false"
+      - key: FINREVIEW_FYERS_THIRD_PARTY_APPROVED
+        value: "false"
+      - key: FYERS_CLIENT_ID
+        sync: false
+      - key: FYERS_APP_SECRET
+        sync: false
+      - key: FINREVIEW_FYERS_REDIRECT_URI
+        sync: false
+      - key: FINREVIEW_FYERS_FRONTEND_RETURN_URL
+        sync: false
       - key: FINREVIEW_V2_BROKER_PROBES_ENABLED
         value: "false"
       - key: FINREVIEW_V2_MARKET_API_ENABLED

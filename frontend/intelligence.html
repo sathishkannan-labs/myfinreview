@@ -425,17 +425,21 @@ async function refreshFyersConnection(){
    api('/v2/market/fyers/test-availability'),api('/v2/market/connections')
   ]);
   fyersTestAvailable=Boolean(cap.available);
-  // Diagnostics are visible only to the staging account allowlisted by the backend.
-  const diagnostics=document.querySelector('#labOptional');
-  diagnostics.hidden=!fyersTestAvailable;
   const userSession=cap.mode==='THIRD_PARTY_SESSION';
+  const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
+  const inactiveRecords=(stat.inactive_connections||[]).filter(item=>item.provider==='fyers');
+  const localRecords=[...records,...inactiveRecords];
+  // Keep local disconnect available for an existing session even if activation
+  // is later disabled or the provider configuration becomes incomplete.
+  const diagnostics=document.querySelector('#labOptional');
+  diagnostics.hidden=!(fyersTestAvailable||localRecords.length>0);
+  document.querySelector('#connectFyers').textContent=userSession?'Connect your FYERS account':'Connect FYERS';
   document.querySelector('#fyersConnectionTitle').textContent=userSession?'Your FYERS connection':'Personal staging diagnostics';
   document.querySelector('#labLegacyDiagnostics').hidden=userSession;
   document.querySelector('#fyersStagingNote').hidden=userSession;
   document.querySelector('#fyersProbeNote').hidden=userSession;
   document.querySelector('#probeFyersProfile').hidden=userSession;
   document.querySelector('#probeFyersData').hidden=userSession;
-  const records=(stat.connections||[]).filter(item=>item.provider==='fyers');
   const required=['historical','quotes'].map(purpose=>records.find(item=>item.purpose===purpose&&item.state==='STORED_UNVERIFIED'));
   const deadline=required.every(Boolean)?Math.min(...required.map(item=>item.expires_at?Date.parse(item.expires_at):Infinity)):0;
   const connected=deadline>Date.now()&&deadline!==rejectedFyersDeadline;
@@ -446,7 +450,10 @@ async function refreshFyersConnection(){
     'FYERS session missing or expired. Connect FYERS to use broker data.';
   const expired=records.length>0&&!connected;
   if(!fyersTestAvailable){
-   label.textContent='Personal staging diagnostics unavailable for this account.';
+   disconnect.disabled=localRecords.length===0;
+   label.textContent=localRecords.length>0?
+    'FYERS connection is unavailable, but you can remove the stored local session.':
+    'Personal staging diagnostics unavailable for this account.';
    return;
   }
   if(window.location.hash==='#fyersConnectionPanel'){
@@ -455,10 +462,11 @@ async function refreshFyersConnection(){
   connect.disabled=false;
   probe.disabled=!connected;
   dataButton.disabled=!connected;
-  disconnect.disabled=!userSession&&records.length===0;
+  disconnect.disabled=!userSession&&localRecords.length===0;
   label.textContent=connected?
    'FYERS connection stored. Historical data access is checked when you run research; use diagnostics only if troubleshooting.':
    expired?'A previous FYERS session expired. Select Connect FYERS to reauthorize.':
+   userSession?'Use Connect your FYERS account to authorize read-only research on the official FYERS website. FinReview never asks for your FYERS password.':
    'Select Connect FYERS to sign in on the official FYERS page.';
  }catch(e){
   label.textContent='FYERS connection status unavailable. '+e.message;

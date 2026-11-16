@@ -210,3 +210,6 @@ def test_third_party_readiness_rejects_callback_without_hostname(db, monkeypatch
 
     monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org/v2/market/oauth/fyers/callback")
     assert fyers_session.configuration_ready()
+
+    monkeypatch.setenv("FINREVIEW_FYERS_REDIRECT_URI", "https://example.org:bad/v2/market/oauth/fyers/callback")
+    assert not fyers_session.configuration_ready()

@@ -42,6 +42,8 @@ def configuration_ready():
     try:
         _, _, callback = broker_settings("fyers")
         parsed = urlsplit(callback)
+        # Accessing .port validates both its syntax and numeric range.
+        parsed.port
         if (parsed.scheme != "https" or not parsed.hostname or
                 parsed.username or parsed.password or parsed.query or parsed.fragment):
             return False
@@ -71,13 +73,17 @@ def _key(value):
 
 
 def session_key(authorization):
-    token = (authorization or "").removeprefix("Bearer ").strip()
+    if not isinstance(authorization, str):
+        raise BrokerAuthError("Sign in again to connect FYERS")
+    token = authorization.removeprefix("Bearer ").strip()
     if not token.startswith("frv2:"):
         raise BrokerAuthError("Sign in again to connect FYERS")
     return _key(token)
 
 
 def begin(db: Session, user_id: int, authorization: str):
+    if not enabled():
+        raise BrokerAuthError("FYERS third-party integration is not approved and enabled")
     key = session_key(authorization)
     client_id, _, redirect = broker_settings("fyers")
     return_url()
@@ -102,7 +108,9 @@ def begin(db: Session, user_id: int, authorization: str):
 
 
 def claim(db: Session, state: str):
-    if not 20 <= len(state) <= 200:
+    if not enabled():
+        raise BrokerAuthError("FYERS third-party integration is not approved and enabled")
+    if not isinstance(state, str) or not 20 <= len(state) <= 200:
         raise BrokerAuthError("Invalid FYERS authorization")
     digest = _key(state)
     result = db.exec(update(FyersSession).where(
@@ -153,6 +161,8 @@ def status(db: Session, user_id: int, authorization: str | None):
 
 
 def read(db: Session, user_id: int, authorization: str | None):
+    if not enabled():
+        raise BrokerAuthError("FYERS third-party integration disabled")
     row = _find(db, user_id, authorization)
     if row is None or not row.encrypted_credentials or _utc_expiry(row.expires_at) <= datetime.now(timezone.utc):
         raise BrokerAuthError("FYERS connection expired or unavailable")

@@ -93,7 +93,7 @@ def test_developer_diagnostics_not_in_community_view_by_default():
     parser.feed(RESEARCH)
     assert parser.found and parser.hidden
     assert "[hidden]{display:none!important}" in RESEARCH
-    assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
+    assert "diagnostics.hidden=!(fyersTestAvailable||localRecords.length>0)" in RESEARCH
 
 
 def test_nonfunctional_broker_preferences_removed_from_research_ui():
@@ -106,7 +106,7 @@ def test_nonfunctional_broker_preferences_removed_from_research_ui():
     assert "renderResearchReport(data,notice" in RESEARCH
     assert 'id="fyersResearchSymbol"' in RESEARCH
     assert "FYERS quote API snapshot" in RESEARCH
-    assert "diagnostics.hidden=!fyersTestAvailable" in RESEARCH
+    assert "diagnostics.hidden=!(fyersTestAvailable||localRecords.length>0)" in RESEARCH
 
 
 def test_shared_report_is_outside_data_source_panels():
